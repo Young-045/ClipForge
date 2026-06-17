@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="720" viewBox="0 0 1200 720">
+  <defs>
+    <linearGradient id="aBg" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#4a90d9"/>
+      <stop offset="1" stop-color="#1d9e75"/>
+    </linearGradient>
+    <linearGradient id="bBg" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#2c2c2c"/>
+      <stop offset="1" stop-color="#555"/>
+    </linearGradient>
+    <linearGradient id="cBg" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#1a6fd4"/>
+      <stop offset="1" stop-color="#7b1fa2"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="10" flood-opacity=".18"/>
+    </filter>
+    <style>
+      .bg{fill:#f5f5f5}
+      .card{fill:#fff;stroke:#dedede}
+      .stage{fill:#f1f1f1}
+      .title{font:700 28px Inter,Segoe UI,sans-serif;fill:#202124}
+      .sub{font:400 16px Inter,Segoe UI,sans-serif;fill:#666}
+      .label{font:700 15px Inter,Segoe UI,sans-serif;fill:#777}
+      .name{font:700 22px Inter,Segoe UI,sans-serif;fill:#202124}
+      .desc{font:400 14px Inter,Segoe UI,sans-serif;fill:#555}
+      .noteBg{fill:#f0faf6;stroke:#d8e7df}
+      .note{font:400 15px Inter,Segoe UI,sans-serif;fill:#23634f}
+    </style>
+  </defs>
+  <rect class="bg" width="1200" height="720"/>
+  <text class="title" x="44" y="52">ClipForge 图标方向</text>
+  <text class="sub" x="44" y="82">目标：一眼看出“剪贴板 + 历史/整理”，同时像一个严肃的跨平台桌面工具。</text>
+
+  <g transform="translate(44 118)">
+    <rect class="card" width="344" height="456" rx="8"/>
+    <rect class="stage" width="344" height="270" rx="8"/>
+    <g transform="translate(67 30)">
+      <rect x="20" y="20" width="170" height="170" rx="38" fill="url(#aBg)"/>
+      <g filter="url(#shadow)">
+        <rect x="58" y="54" width="94" height="118" rx="14" fill="#fff"/>
+        <rect x="78" y="43" width="54" height="28" rx="12" fill="#f5f5f5" stroke="#d8d8d8" stroke-width="4"/>
+        <path d="M80 97h50M80 119h50M80 141h35" stroke="#4a90d9" stroke-width="10" stroke-linecap="round"/>
+      </g>
+      <path d="M142 58l20 20-20 20" fill="none" stroke="#fff" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <text class="label" x="18" y="300">A · 推荐</text>
+    <text class="name" x="18" y="330">流动剪贴板</text>
+    <text class="desc" x="18" y="360">剪贴板主体加“流转箭头”，最直观表达</text>
+    <text class="desc" x="18" y="382">复制、历史和快速粘贴。蓝绿来自现有</text>
+    <text class="desc" x="18" y="404">搜索焦点与成功反馈色。</text>
+  </g>
+
+  <g transform="translate(428 118)">
+    <rect class="card" width="344" height="456" rx="8"/>
+    <rect class="stage" width="344" height="270" rx="8"/>
+    <g transform="translate(67 30)">
+      <rect x="20" y="20" width="170" height="170" rx="38" fill="url(#bBg)"/>
+      <path d="M73 54h64a16 16 0 0 1 16 16v88a16 16 0 0 1-16 16H73a16 16 0 0 1-16-16V70a16 16 0 0 1 16-16Z" fill="#f7f7f7"/>
+      <rect x="80" y="42" width="50" height="28" rx="12" fill="#1d9e75"/>
+      <path d="M78 98h54M78 120h42M78 142h54" stroke="#555" stroke-width="10" stroke-linecap="round"/>
+      <path d="M127 92l22 22-22 22" fill="none" stroke="#1d9e75" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <text class="label" x="18" y="300">B</text>
+    <text class="name" x="18" y="330">锻造单色标</text>
+    <text class="desc" x="18" y="360">更像系统级效率工具，深灰底呼应应用</text>
+    <text class="desc" x="18" y="382">的中性色，绿色只做功能强调。稳、耐看，</text>
+    <text class="desc" x="18" y="404">但小尺寸时个性弱一点。</text>
+  </g>
+
+  <g transform="translate(812 118)">
+    <rect class="card" width="344" height="456" rx="8"/>
+    <rect class="stage" width="344" height="270" rx="8"/>
+    <g transform="translate(67 30)">
+      <rect x="20" y="20" width="170" height="170" rx="38" fill="url(#cBg)"/>
+      <rect x="61" y="62" width="88" height="108" rx="15" fill="#fff" opacity=".98"/>
+      <rect x="80" y="50" width="50" height="26" rx="11" fill="#e3f0ff" stroke="#fff" stroke-width="4"/>
+      <path d="M83 98h44M83 120h30" stroke="#1a6fd4" stroke-width="9" stroke-linecap="round"/>
+      <path d="M80 145h50" stroke="#7b1fa2" stroke-width="9" stroke-linecap="round"/>
+      <path d="M143 73c15 9 24 24 24 42s-9 33-24 42" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round"/>
+    </g>
+    <text class="label" x="18" y="300">C</text>
+    <text class="name" x="18" y="330">多类型归档</text>
+    <text class="desc" x="18" y="360">更强调管理文本、链接、代码、图片等多类型</text>
+    <text class="desc" x="18" y="382">历史。视觉更活跃，但紫蓝调和现有 UI 的</text>
+    <text class="desc" x="18" y="404">朴素工具感距离稍远。</text>
+  </g>
+
+  <rect class="noteBg" x="44" y="604" width="1112" height="70" rx="8"/>
+  <text class="note" x="64" y="634">我的建议：选 A 作为主方向。它的识别速度最好，而且蓝绿和当前界面的焦点色、成功色一致。</text>
+  <text class="note" x="64" y="658">确认方向后，我可以继续生成正式图标资产，并替换 Tauri 的 PNG/ICO/ICNS 图标集。</text>
+</svg>

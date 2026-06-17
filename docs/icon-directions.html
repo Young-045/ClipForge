@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ClipForge Icon Directions</title>
+<style>
+:root{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#202124;background:#f5f5f5}
+*{box-sizing:border-box}
+body{margin:0;padding:28px}
+.wrap{max-width:1160px;margin:0 auto}
+h1{font-size:22px;margin:0 0 6px;font-weight:700}
+.sub{margin:0 0 22px;color:#666;font-size:14px}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+.card{background:#fff;border:1px solid #dedede;border-radius:8px;overflow:hidden;box-shadow:0 1px 5px rgba(0,0,0,.05)}
+.stage{height:300px;display:grid;place-items:center;background:linear-gradient(180deg,#fafafa,#ececec)}
+.body{padding:15px 16px 17px}
+.k{font-size:12px;color:#777;font-weight:700;margin-bottom:6px}
+.body h2{font-size:17px;margin:0 0 8px}
+.body p{font-size:13px;color:#555;line-height:1.55;margin:0}
+.sizes{display:flex;gap:14px;align-items:center;margin-top:16px;padding-top:14px;border-top:1px solid #eee}
+.mini{display:grid;place-items:center;background:#f3f3f3;border-radius:6px}
+.mini.s64{width:64px;height:64px}
+.mini.s32{width:32px;height:32px}
+.mini.s16{width:16px;height:16px;border-radius:3px}
+.note{margin-top:20px;padding:14px 16px;border:1px solid #d8e7df;background:#f0faf6;border-radius:8px;color:#23634f;font-size:13px;line-height:1.55}
+@media(max-width:900px){.grid{grid-template-columns:1fr}.stage{height:260px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>ClipForge 图标方向</h1>
+  <p class="sub">目标：一眼看出“剪贴板 + 历史/整理”，同时像一个严肃的跨平台桌面工具。</p>
+  <div class="grid">
+    <section class="card">
+      <div class="stage">
+        <svg width="210" height="210" viewBox="0 0 210 210" role="img" aria-label="Option A">
+          <defs>
+            <linearGradient id="aBg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#4a90d9"/><stop offset="1" stop-color="#1d9e75"/></linearGradient>
+            <filter id="sh" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="10" stdDeviation="10" flood-opacity=".18"/></filter>
+          </defs>
+          <rect x="20" y="20" width="170" height="170" rx="38" fill="url(#aBg)"/>
+          <g filter="url(#sh)">
+            <rect x="58" y="54" width="94" height="118" rx="14" fill="#fff"/>
+            <rect x="78" y="43" width="54" height="28" rx="12" fill="#f5f5f5" stroke="#d8d8d8" stroke-width="4"/>
+            <path d="M80 97h50M80 119h50M80 141h35" stroke="#4a90d9" stroke-width="10" stroke-linecap="round"/>
+          </g>
+          <path d="M142 58l20 20-20 20" fill="none" stroke="#fff" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/>
+        </svg>
+      </div>
+      <div class="body">
+        <div class="k">A · 推荐</div>
+        <h2>流动剪贴板</h2>
+        <p>剪贴板主体加一个“流转箭头”，最直观表达复制、历史和快速粘贴。蓝绿来自现有搜索焦点与成功反馈色，和应用 UI 联系最强。</p>
+        <div class="sizes">
+          <div class="mini s64"><svg width="52" height="52" viewBox="0 0 210 210"><rect x="20" y="20" width="170" height="170" rx="38" fill="#2f98a9"/><rect x="58" y="54" width="94" height="118" rx="14" fill="#fff"/><rect x="78" y="43" width="54" height="28" rx="12" fill="#f5f5f5"/><path d="M80 97h50M80 119h50M80 141h35" stroke="#4a90d9" stroke-width="10" stroke-linecap="round"/><path d="M142 58l20 20-20 20" fill="none" stroke="#fff" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <div class="mini s32"><svg width="26" height="26" viewBox="0 0 210 210"><rect x="20" y="20" width="170" height="170" rx="38" fill="#2f98a9"/><rect x="58" y="54" width="94" height="118" rx="14" fill="#fff"/><path d="M80 97h50M80 119h50M80 141h35" stroke="#4a90d9" stroke-width="10" stroke-linecap="round"/></svg></div>
+          <div class="mini s16"><svg width="14" height="14" viewBox="0 0 210 210"><rect x="20" y="20" width="170" height="170" rx="38" fill="#2f98a9"/><rect x="62" y="58" width="86" height="110" rx="14" fill="#fff"/></svg></div>
+        </div>
+      </div>
+    </section>
+    <section class="card">
+      <div class="stage">
+        <svg width="210" height="210" viewBox="0 0 210 210" role="img" aria-label="Option B">
+          <defs><linearGradient id="bBg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#2c2c2c"/><stop offset="1" stop-color="#555"/></linearGradient></defs>
+          <rect x="20" y="20" width="170" height="170" rx="38" fill="url(#bBg)"/>
+          <path d="M73 54h64a16 16 0 0 1 16 16v88a16 16 0 0 1-16 16H73a16 16 0 0 1-16-16V70a16 16 0 0 1 16-16Z" fill="#f7f7f7"/>
+          <rect x="80" y="42" width="50" height="28" rx="12" fill="#1d9e75"/>
+          <path d="M78 98h54M78 120h42M78 142h54" stroke="#555" stroke-width="10" stroke-linecap="round"/>
+          <path d="M127 92l22 22-22 22" fill="none" stroke="#1d9e75" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="body">
+        <div class="k">B</div>
+        <h2>锻造单色标</h2>
+        <p>更像系统级效率工具，深灰底呼应应用的中性色，绿色只做功能强调。优点是稳、耐看；缺点是小尺寸时个性弱一点。</p>
+        <div class="sizes">
+          <div class="mini s64"><svg width="52" height="52" viewBox="0 0 210 210"><rect x="20" y="20" width="170" height="170" rx="38" fill="#444"/><path d="M73 54h64a16 16 0 0 1 16 16v88a16 16 0 0 1-16 16H73a16 16 0 0 1-16-16V70a16 16 0 0 1 16-16Z" fill="#f7f7f7"/><rect x="80" y="42" width="50" height="28" rx="12" fill="#1d9e75"/><path d="M78 98h54M78 120h42M78 142h54" stroke="#555" stroke-width="10" stroke-linecap="round"/></svg></div>
+          <div class="mini s32"><svg width="26" height="26" viewBox="0 0 210 210"><rect x="20" y="20" width="170" height="170" rx="38" fill="#444"/><rect x="57" y="54" width="96" height="120" rx="16" fill="#f7f7f7"/><rect x="80" y="42" width="50" height="28" rx="12" fill="#1d9e75"/></svg></div>
+          <div class="mini s16"><svg width="14" height="14" viewBox="0 0 210 210"><rect x="20" y="20" width="170" height="170" rx="38" fill="#444"/><rect x="62" y="58" width="86" height="110" rx="14" fill="#fff"/></svg></div>
+        </div>
+      </div>
+    </section>
+    <section class="card">
+      <div class="stage">
+        <svg width="210" height="210" viewBox="0 0 210 210" role="img" aria-label="Option C">
+          <defs><linearGradient id="cBg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#1a6fd4"/><stop offset="1" stop-color="#7b1fa2"/></linearGradient></defs>
+          <rect x="20" y="20" width="170" height="170" rx="38" fill="url(#cBg)"/>
+          <rect x="61" y="62" width="88" height="108" rx="15" fill="#fff" opacity=".98"/>
+          <rect x="80" y="50" width="50" height="26" rx="11" fill="#e3f0ff" stroke="#fff" stroke-width="4"/>
+          <path d="M83 98h44M83 120h30" stroke="#1a6fd4" stroke-width="9" stroke-linecap="round"/>
+          <path d="M80 145h50" stroke="#7b1fa2" stroke-width="9" stroke-linecap="round"/>
+          <path d="M143 73c15 9 24 24 24 42s-9 33-24 42" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="body">
+        <div class="k">C</div>
+        <h2>多类型归档</h2>
+        <p>更强调 ClipForge 能管理文本、链接、代码、图片等多类型历史。视觉更活跃，但紫蓝调和现有 UI 的朴素工具感距离稍远。</p>
+        <div class="sizes">
+          <div class="mini s64"><svg width="52" height="52" viewBox="0 0 210 210"><rect x="20" y="20" width="170" height="170" rx="38" fill="#3559bd"/><rect x="61" y="62" width="88" height="108" rx="15" fill="#fff"/><rect x="80" y="50" width="50" height="26" rx="11" fill="#e3f0ff"/><path d="M83 98h44M83 120h30" stroke="#1a6fd4" stroke-width="9" stroke-linecap="round"/><path d="M80 145h50" stroke="#7b1fa2" stroke-width="9" stroke-linecap="round"/></svg></div>
+          <div class="mini s32"><svg width="26" height="26" viewBox="0 0 210 210"><rect x="20" y="20" width="170" height="170" rx="38" fill="#3559bd"/><rect x="61" y="62" width="88" height="108" rx="15" fill="#fff"/><path d="M83 100h44M83 126h30" stroke="#1a6fd4" stroke-width="10" stroke-linecap="round"/></svg></div>
+          <div class="mini s16"><svg width="14" height="14" viewBox="0 0 210 210"><rect x="20" y="20" width="170" height="170" rx="38" fill="#3559bd"/><rect x="64" y="62" width="82" height="108" rx="14" fill="#fff"/></svg></div>
+        </div>
+      </div>
+    </section>
+  </div>
+  <div class="note">我的建议：选 A 作为主方向。它的识别速度最好，而且蓝绿和当前界面的焦点色、成功色一致。确认方向后，我可以继续生成正式图标资产，并替换 Tauri 的 PNG/ICO/ICNS 图标集。</div>
+</div>
+</body>
+</html>
