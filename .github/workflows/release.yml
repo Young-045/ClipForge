@@ -72,7 +72,27 @@ jobs:
         with:
           tagName: ${{ env.RELEASE_TAG }}
           releaseName: ClipForge ${{ env.RELEASE_TAG }}
-          releaseBody: See the assets attached to this release to download and install ClipForge.
+          releaseBody: |
+            ## Download
+
+            Choose the installer that matches your operating system:
+
+            | System | Recommended file | Notes |
+            | --- | --- | --- |
+            | Windows 10/11 | `.msi` | Standard Windows installer. Use this for most Windows PCs. |
+            | macOS Apple Silicon | `aarch64.dmg` | For Macs with M1, M2, M3, or newer Apple Silicon chips. |
+            | macOS Intel | `x64.dmg` or `x86_64.dmg` | For older Intel-based Macs. |
+            | Ubuntu/Debian Linux | `.deb` | For Ubuntu, Debian, Linux Mint, and related distributions. |
+            | Fedora/RHEL/openSUSE Linux | `.rpm` | For Fedora, RHEL, CentOS Stream, openSUSE, and related distributions. |
+            | Other Linux distributions | `.AppImage` | Portable Linux package. Download, mark as executable, then run. |
+
+            Files ending in `.sig`, `.sha256`, `.blockmap`, or similar metadata names are used for verification or updates and are not installers.
+
+            ## Install Notes
+
+            - On macOS, if the app is blocked by Gatekeeper, right-click the app and choose Open.
+            - On Linux AppImage, run `chmod +x ClipForge*.AppImage` before launching it.
+            - If you are unsure which macOS package to use, choose Apple Silicon for Macs released from late 2020 onward, and Intel for older Macs.
           releaseDraft: false
           prerelease: false
           tauriScript: npm run tauri
