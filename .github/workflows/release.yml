@@ -73,7 +73,7 @@ jobs:
           tagName: ${{ env.RELEASE_TAG }}
           releaseName: ClipForge ${{ env.RELEASE_TAG }}
           releaseBody: See the assets attached to this release to download and install ClipForge.
-          releaseDraft: true
+          releaseDraft: false
           prerelease: false
           tauriScript: npm run tauri
           args: ${{ matrix.args }}
