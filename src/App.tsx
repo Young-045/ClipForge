@@ -845,7 +845,7 @@ function SettingsPage({
       if (selected && typeof selected === "string") {
         const folder = (selected as string).replace(/[\\/]$/, "");
         const sep = folder.includes("/") ? "/" : "\\";
-        const fullPath = `${folder}${sep}clipforge.db`;
+        const fullPath = `${folder}${sep}clipboard.db`;
         setDbPath(fullPath);
       }
     } catch (e) {
@@ -992,7 +992,7 @@ function SettingsPage({
         <div className="setting-group">
           <label className="setting-label">数据库文件夹</label>
           <p className="setting-desc">
-            修改后需重启应用生效。不选择则使用默认路径（exe 同级 db/ 目录）
+            修改后需重启应用生效。不选择则使用默认路径（AppData/Local/ClipForge/db/ 目录）
           </p>
           <div className="shortcut-row">
             <span

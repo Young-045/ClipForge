@@ -2,10 +2,11 @@ use chrono::Local;
 use rusqlite::{params, Connection};
 use serde::Serialize;
 use std::collections::hash_map::DefaultHasher;
-use std::env;
 use std::fs;
 use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
+
+use crate::config;
 
 #[derive(Debug, Serialize, Clone)]
 pub struct ClipboardItem {
@@ -82,6 +83,131 @@ pub struct CustomGroup {
     pub color: Option<String>,
 }
 
+#[derive(Debug, Clone, Copy, Serialize)]
+pub enum LogLevel {
+    Debug,
+    Info,
+    Warn,
+    Error,
+}
+
+impl LogLevel {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            LogLevel::Debug => "DEBUG",
+            LogLevel::Info => "INFO",
+            LogLevel::Warn => "WARN",
+            LogLevel::Error => "ERROR",
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct LogEntry {
+    pub id: i64,
+    pub level: String,
+    pub source: String,
+    pub message: String,
+    pub created_at: String,
+}
+
+pub struct LogDatabase {
+    conn: Connection,
+    db_path: PathBuf,
+}
+
+impl LogDatabase {
+    /// Open a dedicated log database. If `log_db_path` is None, the log file
+    /// is placed next to the main data database: `<data_dir>/logs.db`.
+    pub fn new(log_db_path: Option<PathBuf>) -> Self {
+        let path = log_db_path.unwrap_or_else(Self::default_db_path);
+
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).expect("Failed to create log db parent directory");
+        }
+
+        let conn = Connection::open(&path).expect("Failed to open log database");
+        Self::migrate_schema(&conn);
+
+        LogDatabase { conn, db_path: path }
+    }
+
+    /// Absolute path to the currently open log database file.
+    pub fn db_path(&self) -> PathBuf {
+        self.db_path.clone()
+    }
+
+    /// Default log database path: `<app_data_dir>/logs.db`.
+    pub fn default_db_path() -> PathBuf {
+        config::app_data_dir().join("logs.db")
+    }
+
+    /// Create the `app_logs` table and index if they do not exist.
+    fn migrate_schema(conn: &Connection) {
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS app_logs (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                level      TEXT    NOT NULL,
+                source     TEXT    NOT NULL DEFAULT '',
+                message    TEXT    NOT NULL,
+                created_at TEXT    NOT NULL
+            )",
+            [],
+        )
+        .expect("Failed to create app_logs table in log db");
+
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_app_logs_created_at ON app_logs(created_at DESC)",
+            [],
+        )
+        .expect("Failed to create app_logs index in log db");
+    }
+
+    pub fn write_log(&self, level: LogLevel, source: &str, message: &str) {
+        let now = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
+        let _ = self.conn.execute(
+            "INSERT INTO app_logs (level, source, message, created_at) VALUES (?1, ?2, ?3, ?4)",
+            params![level.as_str(), source, message, now],
+        );
+    }
+
+    /// Delete log records older than `days`.
+    pub fn cleanup_old_logs(&self, days: i64) {
+        if days > 0 {
+            let _ = self.conn.execute(
+                "DELETE FROM app_logs WHERE datetime(created_at) < datetime('now', ?1)",
+                params![format!("-{} days", days)],
+            );
+        }
+    }
+
+    pub fn list_logs(&self, limit: i64) -> Vec<LogEntry> {
+        let mut stmt = self
+            .conn
+            .prepare(
+                "SELECT id, level, source, message, created_at \
+                 FROM app_logs \
+                 ORDER BY id DESC \
+                 LIMIT ?1",
+            )
+            .expect("Failed to prepare logs query");
+
+        let rows = stmt
+            .query_map(params![limit], |row| {
+                Ok(LogEntry {
+                    id: row.get(0)?,
+                    level: row.get(1)?,
+                    source: row.get(2)?,
+                    message: row.get(3)?,
+                    created_at: row.get(4)?,
+                })
+            })
+            .expect("Failed to query logs");
+
+        rows.filter_map(|r| r.ok()).collect()
+    }
+}
+
 pub struct Database {
     conn: Connection,
     images_dir: PathBuf,
@@ -96,7 +222,7 @@ impl Database {
 
         fs::create_dir_all(&images_dir).expect("Failed to create images directory");
 
-        println!("Database path: {}", path.display());
+        log::info!("Database path: {}", path.display());
 
         // Ensure parent directory exists (important for custom paths)
         if let Some(parent) = path.parent() {
@@ -117,11 +243,9 @@ impl Database {
     }
 
     fn default_db_path() -> PathBuf {
-        let exe_path = env::current_exe().expect("Failed to get current exe path");
-        let exe_dir = exe_path.parent().expect("Failed to get exe directory");
-        let db_dir = exe_dir.join("db");
+        let db_dir = config::app_data_dir();
         fs::create_dir_all(&db_dir).expect("Failed to create db directory");
-        db_dir.join("clipforge.db")
+        db_dir.join("clipboard.db")
     }
 
     /// Absolute path to the currently open database file.
@@ -392,14 +516,14 @@ impl Database {
         match result {
             Ok(rows) => {
                 if rows > 0 {
-                    println!("Saved text+html to database.");
+                    log::info!("Saved text+html to database.");
                     self.enforce_limits();
                 } else {
-                    println!("Text already exists, ignored.");
+                    log::info!("Text already exists, ignored.");
                 }
             }
             Err(error) => {
-                println!("Failed to save data: {}", error);
+                log::error!("Failed to save data: {}", error);
             }
         }
     }
@@ -417,7 +541,7 @@ impl Database {
             .unwrap_or(false);
 
         if exists {
-            println!("Image already exists, ignored.");
+            log::info!("Image already exists, ignored.");
             return;
         }
 
@@ -425,7 +549,7 @@ impl Database {
         let img = match img {
             Some(i) => i,
             None => {
-                println!("Failed to create image from raw bytes");
+                log::error!("Failed to create image from raw bytes");
                 return;
             }
         };
@@ -434,9 +558,9 @@ impl Database {
         let image_path = self.images_dir.join(&image_filename);
 
         match img.save(&image_path) {
-            Ok(_) => println!("Saved image to: {}", image_path.display()),
+            Ok(_) => log::info!("Saved image to: {}", image_path.display()),
             Err(e) => {
-                println!("Failed to save image: {}", e);
+                log::error!("Failed to save image: {}", e);
                 return;
             }
         }
@@ -454,11 +578,11 @@ impl Database {
 
         match result {
             Ok(_) => {
-                println!("Image record saved to database.");
+                log::info!("Image record saved to database.");
                 self.enforce_limits();
             }
             Err(error) => {
-                println!("Failed to save image record: {}", error);
+                log::error!("Failed to save image record: {}", error);
                 let _ = fs::remove_file(&image_path);
             }
         }
@@ -664,7 +788,7 @@ impl Database {
                      )",
                     params![excess],
                 );
-                println!("Cleaned up {} excess items (limit: {})", excess, max_items);
+                log::info!("Cleaned up {} excess items (limit: {})", excess, max_items);
             }
         }
 
@@ -681,7 +805,7 @@ impl Database {
                 )
                 .unwrap_or(0);
             if deleted > 0 {
-                println!(
+                log::info!(
                     "Cleaned up {} expired items (retention: {} days)",
                     deleted, max_days
                 );

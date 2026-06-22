@@ -1,5 +1,5 @@
 use super::AppState;
-use crate::db::{ClipboardItem, Database};
+use crate::db::{ClipboardItem, Database, LogEntry};
 use arboard::Clipboard;
 use base64::Engine;
 use std::collections::HashSet;
@@ -105,7 +105,7 @@ pub fn start_watcher(
     recently_copied: Arc<Mutex<HashSet<String>>>,
 ) {
     std::thread::spawn(move || {
-        println!("Clipboard watcher started.");
+        log::info!("Clipboard watcher started.");
 
         let mut clipboard_watcher = ClipboardWatcher::new();
 
@@ -113,7 +113,7 @@ pub fn start_watcher(
             let mut update = false;
 
             if let Some(image) = clipboard_watcher.get_new_image() {
-                println!("New clipboard image: {}x{}", image.width, image.height);
+                log::info!("New clipboard image: {}x{}", image.width, image.height);
                 {
                     let database = database.lock().expect("Failed to lock database");
                     database.save_clipboard_image(&image.rgba_bytes, image.width, image.height);
@@ -127,14 +127,14 @@ pub fn start_watcher(
                 };
 
                 if !self_copied {
-                    println!("New clipboard text: {}", data.text);
+                    log::info!("New clipboard text: {}", data.text);
                     {
                         let database = database.lock().expect("Failed to lock database");
                         database.save_clipboard_data(&data.text, &data.html);
                     }
                     update = true;
                 } else {
-                    println!("Skipped duplicate (self-copied): {}", data.text);
+                    log::info!("Skipped duplicate (self-copied): {}", data.text);
                 }
             }
 
@@ -445,4 +445,10 @@ pub fn set_item_group(
 ) -> Result<(), String> {
     let database = state.database.lock().expect("database lock");
     database.set_item_group(item_id, group_id)
+}
+
+#[tauri::command]
+pub fn list_logs(state: State<AppState>, limit: i64) -> Vec<LogEntry> {
+    let log_database = state.log_database.lock().expect("log database lock");
+    log_database.list_logs(limit)
 }

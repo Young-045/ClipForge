@@ -1,4 +1,4 @@
-//! External JSON configuration file (exe_dir/clipforge.json).
+//! External JSON configuration file (AppData/Local/ClipForge/clipforge.json).
 //! Persists settings that must be known before the SQLite database is opened,
 //! such as the database file path.
 
@@ -6,8 +6,20 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 
-/// Default filename next to the executable.
+/// Default filename under the OS-local app data folder.
 const CONFIG_FILENAME: &str = "clipforge.json";
+const APP_DIR_NAME: &str = "ClipForge";
+
+/// Default data directory under the OS-local app data folder.
+/// Windows: `C:\Users\<user>\AppData\Local\ClipForge\db`
+/// macOS:   `~/Library/Application Support/ClipForge/db`
+/// Linux:   `~/.local/share/ClipForge/db`
+pub fn app_data_dir() -> PathBuf {
+    dirs_next::data_local_dir()
+        .expect("Failed to get local app data directory")
+        .join(APP_DIR_NAME)
+        .join("db")
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct AppConfig {
@@ -44,14 +56,19 @@ impl AppConfig {
     }
 
     /// Absolute path to the JSON config file.
+    /// Windows: `C:\Users\<user>\AppData\Local\ClipForge\clipforge.json`
+    /// macOS:   `~/Library/Application Support/ClipForge/clipforge.json`
+    /// Linux:   `~/.local/share/ClipForge/clipforge.json`
     pub fn path() -> PathBuf {
-        let exe_path = std::env::current_exe().expect("Failed to get current exe path");
-        exe_path.parent().unwrap().join(CONFIG_FILENAME)
+        dirs_next::data_local_dir()
+            .expect("Failed to get local app data directory")
+            .join(APP_DIR_NAME)
+            .join(CONFIG_FILENAME)
     }
 
     /// Resolve the effective database path.
     /// If `db_path` is set and non-empty, use it. Otherwise default to
-    /// `<exe_dir>/db/clipforge.db`.
+    /// `<app_data_dir>/clipboard.db`.
     pub fn effective_db_path(&self) -> PathBuf {
         if let Some(ref custom) = self.db_path {
             let p = PathBuf::from(custom);
@@ -62,10 +79,8 @@ impl AppConfig {
         Self::default_db_path()
     }
 
-    /// Default database path: `<exe_dir>/db/clipforge.db`.
+    /// Default database path: `<app_data_dir>/clipboard.db`.
     pub fn default_db_path() -> PathBuf {
-        let exe_path = std::env::current_exe().expect("Failed to get current exe path");
-        let exe_dir = exe_path.parent().expect("Failed to get exe directory");
-        exe_dir.join("db").join("clipforge.db")
+        app_data_dir().join("clipboard.db")
     }
 }

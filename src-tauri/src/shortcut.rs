@@ -139,7 +139,7 @@ pub fn register(app: &AppHandle, raw: &str) -> Result<(), String> {
         })
         .map_err(|e| format!("{}", e))?;
 
-    println!("Shortcut registered (Rust): {}", normalized);
+    log::info!("Shortcut registered (Rust): {}", normalized);
     Ok(())
 }
 
@@ -147,7 +147,7 @@ pub fn register(app: &AppHandle, raw: &str) -> Result<(), String> {
 pub fn unregister(app: &AppHandle, raw: &str) {
     let normalized = normalize(raw);
     if let Err(e) = app.global_shortcut().unregister(normalized.as_str()) {
-        eprintln!("Failed to unregister shortcut '{}': {}", normalized, e);
+        log::error!("Failed to unregister shortcut '{}': {}", normalized, e);
     }
 }
 
@@ -165,7 +165,7 @@ pub fn init(app_handle: &AppHandle) {
     };
 
     if let Err(e) = register(app_handle, &initial) {
-        eprintln!("Failed to register initial shortcut: {}", e);
+        log::error!("Failed to register initial shortcut: {}", e);
     }
 
     {

@@ -3,16 +3,19 @@ mod clipboard;
 mod config;
 mod cursor;
 mod db;
+mod logger;
 mod shortcut;
 mod tray;
 
-use db::Database;
+use db::{Database, LogDatabase};
 use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
+use tauri::Manager;
 
 /// Shared application state injected via Tauri manage().
 pub struct AppState {
     pub database: Arc<Mutex<Database>>,
+    pub log_database: Arc<Mutex<LogDatabase>>,
     pub shortcut: Arc<Mutex<Option<String>>>,
     /// Content hashes that were written to the clipboard by our own
     /// copy_to_clipboard / copy_and_paste commands. The watcher thread
@@ -28,28 +31,52 @@ pub fn run() {
     // Load external config (for db_path, before DB init)
     let app_config = config::AppConfig::load();
     let db_path = app_config.effective_db_path();
+    let log_db_path = db_path.parent().map(|dir| dir.join("logs.db"));
 
     let database = Arc::new(Mutex::new(Database::new(Some(db_path))));
+    let log_database = Arc::new(Mutex::new(LogDatabase::new(log_db_path)));
+
+    // Route Rust log records into the dedicated log database.
+    if let Err(e) = logger::init_logger(Arc::clone(&log_database), Arc::clone(&database)) {
+        eprintln!("Failed to initialize database logger: {}", e);
+    }
+    log::info!("ClipForge application starting");
+
     let shortcut: Arc<Mutex<Option<String>>> = Arc::new(Mutex::new(None));
     let recently_copied: Arc<Mutex<HashSet<String>>> = Arc::new(Mutex::new(HashSet::new()));
     let current_page: Arc<Mutex<String>> = Arc::new(Mutex::new("main".to_string()));
 
     // Clones for capture by setup closure
     let db_for_setup = Arc::clone(&database);
+    let log_db_for_setup = Arc::clone(&log_database);
     let recently_copied_for_watcher = Arc::clone(&recently_copied);
     let current_page_for_events = Arc::clone(&current_page);
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            // A second instance was launched: bring the existing window to the foreground.
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.unminimize();
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .manage(AppState {
             database,
+            log_database,
             shortcut,
             recently_copied,
             current_page,
         })
         .setup(move |app| {
+            // Log the actual log database path once the app handle is available
+            if let Ok(log_db) = log_db_for_setup.lock() {
+                log::info!("Log database path: {}", log_db.db_path().display());
+            }
+
             // 1. Global shortcut — init reads DB, registers, stores to state
             shortcut::init(app.handle());
 
@@ -64,6 +91,7 @@ pub fn run() {
                 recently_copied_for_watcher,
             );
 
+            log::info!("ClipForge setup completed");
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -89,6 +117,7 @@ pub fn run() {
             clipboard::rename_group,
             clipboard::update_group_color,
             clipboard::set_item_group,
+            clipboard::list_logs,
             shortcut::get_shortcut,
             shortcut::set_shortcut,
             autostart::get_autostart,
