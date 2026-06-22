@@ -1,24 +1,73 @@
+use crate::AppState;
+use crate::db::Database;
 use std::path::PathBuf;
+use tauri::State;
 
-/// Check whether the current executable is registered for autostart.
+/// Read the autostart preference from the database `config` table.
+///
+/// Unlike the old implementation, this no longer queries the OS registry /
+/// plist / desktop-file. The preference is a pure boolean stored alongside
+/// other user settings (`max_items`, `max_retention_days`, etc.) so that
+/// debug and release builds share the same choice.
 #[tauri::command]
-pub fn get_autostart() -> Result<bool, String> {
-    let exe = std::env::current_exe().map_err(|e| e.to_string())?;
-    is_registered(&exe)
+pub fn get_autostart(state: State<'_, AppState>) -> Result<bool, String> {
+    let db = state.database.lock().map_err(|e| e.to_string())?;
+    Ok(db.get_config("autostart").as_deref() == Some("true"))
 }
 
-/// Enable or disable autostart-on-boot.
+/// Persist the autostart preference to the database AND sync it with the
+/// OS-specific auto-start mechanism for the *current* executable.
+///
+/// The registry / plist / desktop-file mutation is offloaded to a blocking
+/// thread so the Tauri event loop stays responsive.
 #[tauri::command]
-pub fn set_autostart(enable: bool) -> Result<(), String> {
-    let exe = std::env::current_exe().map_err(|e| e.to_string())?;
-
-    if enable {
-        register(&exe)?;
-    } else {
-        unregister()?;
+pub async fn set_autostart(
+    state: State<'_, AppState>,
+    enable: bool,
+) -> Result<(), String> {
+    // 1. Persist the human preference to SQLite (fast, local lock).
+    {
+        let db = state.database.lock().map_err(|e| e.to_string())?;
+        db.set_config("autostart", if enable { "true" } else { "false" })
+            .map_err(|e| e.to_string())?;
     }
 
-    Ok(())
+    // 2. Sync the OS auto-start entry for the *current* executable.
+    tauri::async_runtime::spawn_blocking(move || {
+        let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+        if enable {
+            register(&exe)?;
+        } else {
+            unregister();
+        }
+        Ok::<(), String>(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Called once at startup. Ensures the OS auto-start entry matches the
+/// persisted preference in the database.
+///
+/// This is important because debug and release builds are different
+/// executables. The preference lives in the shared database; the OS entry
+/// must be kept in sync every time the process starts.
+pub fn sync_on_startup(db: &Database) {
+    let enabled = db.get_config("autostart").as_deref() == Some("true");
+
+    let exe = match std::env::current_exe() {
+        Ok(e) => e,
+        Err(_) => return,
+    };
+
+    if enabled {
+        // Best-effort: if registration fails we log but carry on.
+        let _ = register(&exe).inspect_err(|e| {
+            log::warn!("Startup autostart registration failed: {}", e);
+        });
+    } else {
+        unregister();
+    }
 }
 
 // ── Windows ────────────────────────────────────────────────────
@@ -47,9 +96,10 @@ fn register(exe: &PathBuf) -> Result<(), String> {
     }
 }
 
+/// Unregister always succeeds (best-effort). If the key doesn't exist,
+/// `reg delete /f` still exits 0.
 #[cfg(target_os = "windows")]
-fn unregister() -> Result<(), String> {
-    // /f = force (no prompt), also suppresses error if value doesn't exist
+fn unregister() {
     let _ = std::process::Command::new("reg")
         .args([
             "delete",
@@ -59,10 +109,10 @@ fn unregister() -> Result<(), String> {
             "/f",
         ])
         .status();
-    Ok(())
 }
 
 #[cfg(target_os = "windows")]
+#[allow(dead_code)]
 fn is_registered(exe: &PathBuf) -> Result<bool, String> {
     let output = std::process::Command::new("reg")
         .args([
@@ -78,7 +128,7 @@ fn is_registered(exe: &PathBuf) -> Result<bool, String> {
             let stdout = String::from_utf8_lossy(&o.stdout);
             Ok(stdout.contains(&exe.to_string_lossy().as_ref()))
         }
-        _ => Ok(false), // Not found or error → false
+        _ => Ok(false),
     }
 }
 
@@ -115,14 +165,14 @@ fn register(exe: &PathBuf) -> Result<(), String> {
 }
 
 #[cfg(target_os = "macos")]
-fn unregister() -> Result<(), String> {
+fn unregister() {
     let plist = dirs_next::home_dir()
-        .ok_or("Cannot find home dir")?
-        .join("Library/LaunchAgents/com.lefto.clipforge.plist");
-    if plist.exists() {
-        std::fs::remove_file(plist).map_err(|e| e.to_string())?;
+        .map(|h| h.join("Library/LaunchAgents/com.lefto.clipforge.plist"));
+    if let Some(p) = plist {
+        if p.exists() {
+            let _ = std::fs::remove_file(p);
+        }
     }
-    Ok(())
 }
 
 #[cfg(target_os = "macos")]
@@ -157,14 +207,14 @@ X-GNOME-Autostart-enabled=true
 }
 
 #[cfg(target_os = "linux")]
-fn unregister() -> Result<(), String> {
+fn unregister() {
     let desktop = dirs_next::home_dir()
-        .ok_or("Cannot find home dir")?
-        .join(".config/autostart/clipforge.desktop");
-    if desktop.exists() {
-        std::fs::remove_file(desktop).map_err(|e| e.to_string())?;
+        .map(|h| h.join(".config/autostart/clipforge.desktop"));
+    if let Some(d) = desktop {
+        if d.exists() {
+            let _ = std::fs::remove_file(d);
+        }
     }
-    Ok(())
 }
 
 #[cfg(target_os = "linux")]

@@ -91,6 +91,11 @@ pub fn run() {
                 recently_copied_for_watcher,
             );
 
+            // 4. Sync autostart preference (DB → OS registry/plist/desktop-file)
+            if let Ok(db) = db_for_setup.lock() {
+                autostart::sync_on_startup(&db);
+            }
+
             log::info!("ClipForge setup completed");
             Ok(())
         })
