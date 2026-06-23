@@ -1,0 +1,1933 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ClipForge — UI 设计方案预览</title>
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   DESIGN TOKENS
+═══════════════════════════════════════════════════════════════ */
+:root {
+  /* Brand palette — teal-slate */
+  --brand-50:  oklch(97% 0.018 185);
+  --brand-100: oklch(93% 0.040 185);
+  --brand-200: oklch(86% 0.070 185);
+  --brand-300: oklch(76% 0.100 185);
+  --brand-400: oklch(65% 0.120 185);
+  --brand-500: oklch(54% 0.130 185);  /* Primary action */
+  --brand-600: oklch(44% 0.120 185);
+  --brand-700: oklch(35% 0.100 185);
+  --brand-800: oklch(26% 0.070 185);
+  --brand-900: oklch(18% 0.045 185);
+
+  /* Neutrals — tinted with brand hue for cohesion */
+  --neutral-0:   oklch(100% 0.000 185);
+  --neutral-50:  oklch(98%  0.005 185);
+  --neutral-100: oklch(96%  0.007 185);
+  --neutral-150: oklch(93%  0.008 185);
+  --neutral-200: oklch(90%  0.009 185);
+  --neutral-300: oklch(82%  0.010 185);
+  --neutral-400: oklch(70%  0.010 185);
+  --neutral-500: oklch(57%  0.009 185);
+  --neutral-600: oklch(44%  0.008 185);
+  --neutral-700: oklch(32%  0.007 185);
+  --neutral-800: oklch(22%  0.006 185);
+  --neutral-900: oklch(14%  0.005 185);
+
+  /* Semantic */
+  --color-success:       oklch(58% 0.14  155);
+  --color-success-bg:    oklch(95% 0.04  155);
+  --color-warning:       oklch(68% 0.17   75);
+  --color-warning-bg:    oklch(96% 0.05   75);
+  --color-danger:        oklch(55% 0.19   25);
+  --color-danger-bg:     oklch(96% 0.05   25);
+  --color-info:          oklch(58% 0.16  240);
+  --color-info-bg:       oklch(94% 0.05  240);
+  --color-purple:        oklch(54% 0.20  300);
+  --color-purple-bg:     oklch(94% 0.06  300);
+  --color-amber:         oklch(72% 0.18   65);
+  --color-amber-bg:      oklch(97% 0.04   65);
+  --color-pink:          oklch(62% 0.22  350);
+  --color-pink-bg:       oklch(95% 0.05  350);
+
+  /* Semantic surfaces (light) */
+  --surface-base:    var(--neutral-100);
+  --surface-raised:  var(--neutral-0);
+  --surface-overlay: var(--neutral-0);
+  --surface-inset:   var(--neutral-150);
+  --sidebar-bg:      oklch(90% 0.010 185);
+  --surface-brand:   var(--brand-500);
+
+  /* Text (light) */
+  --text-primary:   var(--neutral-900);
+  --text-secondary: var(--neutral-600);
+  --text-tertiary:  var(--neutral-400);
+  --text-on-brand:  var(--neutral-0);
+  --text-brand:     var(--brand-600);
+
+  /* Border (light) */
+  --border-subtle: var(--neutral-200);
+  --border-default: var(--neutral-300);
+  --border-strong: var(--neutral-400);
+  --border-brand: var(--brand-400);
+
+  /* Shadows */
+  --shadow-xs: 0 1px 2px oklch(14% 0.005 185 / 0.06);
+  --shadow-sm: 0 2px 6px oklch(14% 0.005 185 / 0.08), 0 1px 2px oklch(14% 0.005 185 / 0.04);
+  --shadow-md: 0 4px 12px oklch(14% 0.005 185 / 0.10), 0 2px 4px oklch(14% 0.005 185 / 0.05);
+  --shadow-lg: 0 8px 24px oklch(14% 0.005 185 / 0.12), 0 3px 8px oklch(14% 0.005 185 / 0.06);
+  --shadow-xl: 0 16px 48px oklch(14% 0.005 185 / 0.15), 0 6px 16px oklch(14% 0.005 185 / 0.08);
+
+  /* Typography */
+  --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'SF Mono', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
+
+  /* Radius */
+  --radius-sm: 5px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+
+  /* Spacing */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+
+  /* Transitions */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --duration-fast: 120ms;
+  --duration-normal: 220ms;
+  --duration-slow: 360ms;
+
+  /* titlebar height */
+  --titlebar-h: 40px;
+  /* header height */
+  --header-h: 94px;
+}
+
+/* ─── Dark Theme ─── */
+[data-theme="dark"] {
+  --surface-base:    oklch(13% 0.008 185);
+  --surface-raised:  oklch(18% 0.010 185);
+  --surface-overlay: oklch(22% 0.012 185);
+  --surface-inset:   oklch(11% 0.006 185);
+  --sidebar-bg:      oklch(8% 0.005 185);
+  --surface-brand:   var(--brand-500);
+
+  --text-primary:   oklch(94% 0.005 185);
+  --text-secondary: oklch(68% 0.008 185);
+  --text-tertiary:  oklch(46% 0.007 185);
+  --text-on-brand:  oklch(98% 0.003 185);
+  --text-brand:     var(--brand-300);
+
+  --border-subtle:  oklch(24% 0.012 185);
+  --border-default: oklch(30% 0.012 185);
+  --border-strong:  oklch(42% 0.010 185);
+  --border-brand:   var(--brand-500);
+
+  --shadow-xs: 0 1px 2px oklch(5% 0 185 / 0.3);
+  --shadow-sm: 0 2px 6px oklch(5% 0 185 / 0.35);
+  --shadow-md: 0 4px 12px oklch(5% 0 185 / 0.40);
+  --shadow-lg: 0 8px 24px oklch(5% 0 185 / 0.45);
+  --shadow-xl: 0 16px 48px oklch(5% 0 185 / 0.55);
+
+  --color-success-bg:    oklch(22% 0.05 155);
+  --color-warning-bg:    oklch(22% 0.06 75);
+  --color-danger-bg:     oklch(22% 0.06 25);
+  --color-info-bg:       oklch(21% 0.05 240);
+  --color-purple-bg:     oklch(21% 0.07 300);
+  --color-amber-bg:      oklch(22% 0.05 65);
+  --color-pink-bg:       oklch(22% 0.07 350);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RESET & BASE
+═══════════════════════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-primary);
+  background: var(--surface-base);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  user-select: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   DEMO PAGE WRAPPER (not part of app)
+═══════════════════════════════════════════════════════════════ */
+.demo-wrapper {
+  min-height: 100vh;
+  background: oklch(90% 0.012 220);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40px 24px 80px;
+  gap: 60px;
+}
+
+[data-theme="dark"] .demo-wrapper {
+  background: oklch(9% 0.01 220);
+}
+
+.demo-section-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: oklch(55% 0.01 185);
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+[data-theme="dark"] .demo-section-label { color: oklch(50% 0.01 185); }
+
+/* ═══════════════════════════════════════════════════════════════
+   DEMO TOGGLE (page controls)
+═══════════════════════════════════════════════════════════════ */
+.demo-controls {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 9999;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.demo-toggle {
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-default);
+  background: var(--surface-raised);
+  color: var(--text-secondary);
+  font: 600 11px/1 var(--font-ui);
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: all var(--duration-fast) var(--ease-out-quart);
+}
+.demo-toggle:hover { background: var(--surface-overlay); color: var(--text-primary); }
+.demo-toggle.active { background: var(--brand-500); color: #fff; border-color: var(--brand-500); }
+
+/* ═══════════════════════════════════════════════════════════════
+   APP WINDOW FRAME
+═══════════════════════════════════════════════════════════════ */
+.app-window {
+  width: 480px;
+  height: 680px;
+  background: var(--surface-base);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-xl),
+              0 0 0 1px oklch(60% 0.01 185 / 0.15);
+  position: relative;
+  flex-shrink: 0;
+}
+
+[data-theme="dark"] .app-window {
+  box-shadow: var(--shadow-xl),
+              0 0 0 1px oklch(100% 0 0 / 0.06);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   TITLEBAR
+═══════════════════════════════════════════════════════════════ */
+.titlebar {
+  height: var(--titlebar-h);
+  min-height: var(--titlebar-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px 0 14px;
+  background: var(--surface-raised);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+  cursor: default;
+}
+
+.titlebar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.app-icon {
+  width: 20px;
+  height: 20px;
+  background: var(--brand-500);
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.app-icon svg { color: white; }
+
+.app-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.app-subtitle {
+  font-size: 11px;
+  color: var(--brand-600);
+  padding: 1px 7px;
+  background: var(--brand-100);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--brand-200);
+  font-weight: 500;
+}
+
+.titlebar-actions {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.tb-btn {
+  width: 28px;
+  height: 26px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--duration-fast), color var(--duration-fast);
+}
+
+.tb-btn:hover {
+  background: var(--surface-inset);
+  color: var(--text-secondary);
+}
+
+.tb-btn-settings:hover { color: var(--brand-500); }
+
+.tb-btn-close:hover {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MAIN HEADER
+═══════════════════════════════════════════════════════════════ */
+.app-header {
+  flex-shrink: 0;
+  background: var(--surface-raised);
+  padding: 10px 14px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+/* Search bar */
+.search-wrap {
+  position: relative;
+  margin-bottom: 10px;
+}
+
+.search-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-tertiary);
+  pointer-events: none;
+  display: flex;
+}
+
+.search-input {
+  width: 100%;
+  padding: 7px 10px 7px 32px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  font: 400 13px/1.4 var(--font-ui);
+  color: var(--text-primary);
+  background: var(--surface-inset);
+  outline: none;
+  transition: border-color var(--duration-fast), box-shadow var(--duration-fast), background var(--duration-fast);
+}
+
+.search-input::placeholder { color: var(--text-tertiary); }
+
+.search-input:focus {
+  border-color: var(--brand-500);
+  background: var(--surface-raised);
+  box-shadow: 0 0 0 3px oklch(54% 0.130 185 / 0.14);
+}
+
+/* Filter + action row — tabs left, clear right */
+.filter-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding-bottom: 10px;
+}
+
+.filter-tabs {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  flex: 1;
+  flex-wrap: wrap;
+  padding-top: 1px;
+  row-gap: 5px;
+}
+
+.filter-tab {
+  padding: 3px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--text-secondary);
+  font: 500 12px/1.4 var(--font-ui);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--duration-fast) var(--ease-out-quart);
+  flex-shrink: 0;
+}
+
+.filter-tab:hover {
+  background: var(--surface-inset);
+  color: var(--text-primary);
+}
+
+.filter-tab.active {
+  background: var(--brand-500);
+  color: #fff;
+  font-weight: 600;
+}
+
+.filter-tab-text.active   { background: var(--neutral-700); }
+.filter-tab-image.active  { background: var(--color-amber); }
+.filter-tab-code.active   { background: var(--color-purple); }
+.filter-tab-url.active    { background: var(--color-info); }
+.filter-tab-email.active  { background: var(--color-success); }
+
+.filter-tab-group {
+  border-style: dashed;
+}
+.filter-tab-group.work    { border-color: oklch(58% 0.15 250 / 0.5); color: oklch(52% 0.14 250); }
+.filter-tab-group.address { border-color: oklch(55% 0.20 358 / 0.5); color: oklch(48% 0.18 358); }
+.filter-tab-group.design  { border-color: oklch(60% 0.12 175 / 0.5); color: oklch(50% 0.11 175); }
+.filter-tab-group.active  { background: var(--brand-500); color: #fff; border-style: solid; border-color: var(--brand-500); }
+
+.clear-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px 3px 7px;
+  border: 1px solid oklch(55% 0.19 25 / 0.35);
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-danger);
+  font: 500 12px/1.4 var(--font-ui);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all var(--duration-fast);
+}
+.clear-btn:hover {
+  background: var(--color-danger);
+  border-color: var(--color-danger);
+  color: #fff;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CLIPBOARD ITEM LIST
+═══════════════════════════════════════════════════════════════ */
+.item-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-default) transparent;
+}
+
+.item-list::-webkit-scrollbar { width: 5px; }
+.item-list::-webkit-scrollbar-track { background: transparent; }
+.item-list::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border-radius: var(--radius-full);
+}
+
+/* ── List Item ── */
+.clip-item {
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 14px 14px;
+  cursor: pointer;
+  transition: border-color var(--duration-fast), box-shadow var(--duration-fast), transform var(--duration-fast) var(--ease-out-expo);
+  position: relative;
+}
+
+.clip-item::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: transparent;
+  transition: background var(--duration-fast);
+  border-radius: 2px 0 0 2px;
+}
+
+.clip-item:hover {
+  border-color: var(--border-brand);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.clip-item:hover::before { background: var(--brand-500); }
+
+.clip-item:active { transform: translateY(0); }
+
+/* Item with different type accents */
+.clip-item.type-url:hover::before { background: var(--color-info); }
+.clip-item.type-email:hover::before { background: var(--color-success); }
+.clip-item.type-code:hover::before { background: var(--color-purple); }
+.clip-item.type-color:hover::before { background: var(--color-amber); }
+.clip-item.type-image:hover::before { background: var(--color-pink); }
+
+/* Tags */
+.tags-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 6px;
+}
+
+.type-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font: 600 10px/1 var(--font-ui);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: var(--radius-full);
+}
+
+.tag-url   { background: var(--color-info-bg);   color: var(--color-info); }
+.tag-email { background: var(--color-success-bg); color: var(--color-success); }
+.tag-code  { background: var(--color-purple-bg);  color: var(--color-purple); }
+.tag-color { background: var(--color-amber-bg);   color: var(--color-amber); }
+.tag-image { background: var(--color-pink-bg);    color: var(--color-pink); }
+.tag-text  { background: var(--surface-inset);    color: var(--text-secondary); border: 1px solid var(--border-subtle); }
+
+.tag-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font: 500 10px/1 var(--font-ui);
+  padding: 2px 7px;
+  border-radius: var(--radius-full);
+  background: var(--surface-inset);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+}
+
+/* Item content */
+.item-content {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  word-break: break-all;
+}
+
+.item-content.code-content {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--color-purple);
+  background: var(--color-purple-bg);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  margin: 0 -2px;
+}
+
+/* Color swatch display */
+.color-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.color-chip {
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  border: 1px solid oklch(60% 0.01 185 / 0.2);
+  flex-shrink: 0;
+}
+
+/* Image preview */
+.image-thumb {
+  margin-top: 4px;
+  background: var(--surface-inset);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  max-height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-subtle);
+}
+
+.image-thumb img {
+  max-width: 100%;
+  max-height: 100px;
+  object-fit: contain;
+  display: block;
+}
+
+/* Item meta (time + actions) */
+.item-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 7px;
+}
+
+.item-time {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.item-actions {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  opacity: 0;
+  transition: opacity var(--duration-fast);
+}
+
+.clip-item:hover .item-actions { opacity: 1; }
+
+.action-btn {
+  width: 24px;
+  height: 22px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-inset);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--duration-fast);
+}
+
+.action-btn:hover {
+  background: var(--surface-overlay);
+  color: var(--text-primary);
+  border-color: var(--border-default);
+}
+
+.action-btn.del:hover {
+  background: var(--color-danger-bg);
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+/* ── Pinned / Starred state ── */
+.clip-item.pinned {
+  border-color: oklch(72% 0.18 65 / 0.4);
+  background: oklch(97% 0.04 65);
+}
+
+[data-theme="dark"] .clip-item.pinned {
+  background: oklch(18% 0.05 65);
+  border-color: oklch(72% 0.18 65 / 0.3);
+}
+
+.clip-item.pinned::before { background: var(--color-amber); }
+
+/* ── Empty state ── */
+.empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 40px;
+}
+
+.empty-icon {
+  width: 48px;
+  height: 48px;
+  background: var(--surface-inset);
+  border-radius: var(--radius-xl);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+}
+
+.empty-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.empty-desc {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  text-align: center;
+  line-height: 1.6;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   STATUS BAR (bottom)
+═══════════════════════════════════════════════════════════════ */
+.status-bar {
+  flex-shrink: 0;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 14px;
+  background: var(--surface-raised);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.status-count {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.status-shortcut {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 5px;
+  background: var(--surface-inset);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  font: 600 10px/1.4 var(--font-mono);
+  color: var(--text-secondary);
+  box-shadow: 0 1px 0 var(--border-default);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   TOAST NOTIFICATION
+═══════════════════════════════════════════════════════════════ */
+.toast {
+  position: absolute;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%) translateY(0);
+  padding: 8px 16px;
+  background: var(--neutral-900);
+  color: var(--neutral-0);
+  border-radius: var(--radius-full);
+  font: 500 12px/1.4 var(--font-ui);
+  box-shadow: var(--shadow-lg);
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 50;
+  animation: toastPop var(--duration-normal) var(--ease-out-expo);
+}
+
+[data-theme="dark"] .toast { background: var(--neutral-200); color: var(--neutral-900); }
+
+.toast.success { background: var(--color-success); }
+.toast.error   { background: var(--color-danger); }
+
+@keyframes toastPop {
+  from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CONFIRM DIALOG
+═══════════════════════════════════════════════════════════════ */
+.dialog-overlay {
+  position: absolute;
+  inset: 0;
+  background: oklch(14% 0.005 185 / 0.50);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  backdrop-filter: blur(2px);
+}
+
+.dialog {
+  background: var(--surface-overlay);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  padding: 24px;
+  min-width: 280px;
+  max-width: 320px;
+  box-shadow: var(--shadow-xl);
+  animation: dialogIn var(--duration-normal) var(--ease-out-expo);
+}
+
+@keyframes dialogIn {
+  from { opacity: 0; transform: scale(0.94) translateY(8px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.dialog-icon {
+  width: 44px;
+  height: 44px;
+  background: var(--color-danger-bg);
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-danger);
+  margin-bottom: 14px;
+}
+
+.dialog-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 5px;
+  letter-spacing: -0.01em;
+}
+
+.dialog-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 20px;
+}
+
+.dialog-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn {
+  flex: 1;
+  padding: 8px 14px;
+  border-radius: var(--radius-md);
+  font: 600 13px/1 var(--font-ui);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out-quart);
+  border: 1px solid transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.btn-ghost {
+  background: var(--surface-inset);
+  border-color: var(--border-default);
+  color: var(--text-secondary);
+}
+.btn-ghost:hover { background: var(--surface-overlay); color: var(--text-primary); }
+
+.btn-danger {
+  background: var(--color-danger);
+  color: #fff;
+}
+.btn-danger:hover { opacity: 0.88; transform: translateY(-1px); box-shadow: var(--shadow-sm); }
+
+.btn-primary {
+  background: var(--brand-500);
+  color: #fff;
+}
+.btn-primary:hover { opacity: 0.88; transform: translateY(-1px); box-shadow: var(--shadow-sm); }
+
+/* ═══════════════════════════════════════════════════════════════
+   SETTINGS — SIDEBAR LAYOUT
+═══════════════════════════════════════════════════════════════ */
+.settings-layout {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.settings-sidebar {
+  width: 108px;
+  flex-shrink: 0;
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--border-default);
+  padding: 10px 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  scrollbar-width: none;
+}
+.settings-sidebar::-webkit-scrollbar { display: none; }
+
+.settings-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 10px;
+  margin: 0 6px;
+  border-radius: var(--radius-md);
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font: 500 12px/1.4 var(--font-ui);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out-quart);
+  text-align: left;
+  white-space: nowrap;
+  position: relative;
+}
+
+.settings-nav-item:hover {
+  background: oklch(50% 0 0 / 0.06);
+  color: var(--text-primary);
+}
+
+.settings-nav-item.active {
+  background: var(--surface-raised);
+  color: var(--brand-600);
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+}
+
+.settings-nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: -6px;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  background: var(--brand-500);
+  border-radius: 0 2px 2px 0;
+}
+
+.settings-nav-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.settings-nav-item.active .settings-nav-dot { width: 8px; height: 8px; }
+
+.settings-panel {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-default) transparent;
+}
+.settings-panel::-webkit-scrollbar { width: 5px; }
+.settings-panel::-webkit-scrollbar-track { background: transparent; }
+.settings-panel::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border-radius: var(--radius-full);
+}
+
+.settings-section {
+  display: none;
+  flex-direction: column;
+  gap: 10px;
+}
+.settings-section.active { display: flex; }
+
+/* ═══════════════════════════════════════════════════════════════
+   SETTINGS PAGE (old, kept for fallback)
+═══════════════════════════════════════════════════════════════ */
+.settings-page {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 12px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-default) transparent;
+}
+
+.settings-group {
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.settings-group-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-inset);
+}
+
+.settings-group-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 13px;
+}
+
+.settings-group-icon.teal   { background: var(--brand-100); color: var(--brand-600); }
+.settings-group-icon.amber  { background: var(--color-amber-bg); color: var(--color-amber); }
+.settings-group-icon.purple { background: var(--color-purple-bg); color: var(--color-purple); }
+.settings-group-icon.blue   { background: var(--color-info-bg); color: var(--color-info); }
+.settings-group-icon.green  { background: var(--color-success-bg); color: var(--color-success); }
+
+[data-theme="dark"] .settings-group-icon.teal { background: var(--brand-800); color: var(--brand-300); }
+
+.settings-group-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 0.01em;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  padding: 10px 14px;
+  gap: 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  min-height: 44px;
+}
+
+.settings-row:last-child { border-bottom: none; }
+
+.settings-row-label {
+  flex: 1;
+  min-width: 0;
+}
+
+.settings-label-text {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+.settings-label-hint {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-top: 1px;
+  line-height: 1.4;
+}
+
+/* Toggle switch */
+.toggle-wrap {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.toggle-track {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-full);
+  background: var(--border-default);
+  cursor: pointer;
+  transition: background var(--duration-normal);
+}
+
+.toggle-track.on { background: var(--brand-500); }
+
+.toggle-thumb {
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 1px 3px oklch(14% 0 0 / 0.25);
+  transition: transform var(--duration-normal) var(--ease-out-expo);
+}
+
+.toggle-track.on .toggle-thumb { transform: translateX(16px); }
+
+/* Shortcut badge */
+.shortcut-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 8px;
+  background: var(--surface-inset);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  font: 600 12px/1.4 var(--font-mono);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--duration-fast);
+}
+
+.shortcut-badge:hover {
+  border-color: var(--brand-500);
+  color: var(--brand-600);
+  background: var(--brand-50);
+}
+
+/* Path display */
+.path-display {
+  flex: 1;
+  padding: 6px 10px;
+  background: var(--surface-inset);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  font: 400 11.5px/1.4 var(--font-mono);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+/* Mini input */
+.mini-input {
+  width: 72px;
+  padding: 5px 8px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  font: 400 12px/1 var(--font-mono);
+  color: var(--text-primary);
+  background: var(--surface-inset);
+  outline: none;
+  text-align: right;
+  transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
+}
+
+.mini-input:focus {
+  border-color: var(--brand-500);
+  box-shadow: 0 0 0 2.5px oklch(54% 0.130 185 / 0.14);
+}
+
+/* Small button */
+.btn-sm {
+  padding: 5px 10px;
+  border-radius: var(--radius-md);
+  font: 600 11px/1 var(--font-ui);
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all var(--duration-fast);
+}
+
+.btn-sm.primary {
+  background: var(--brand-500);
+  color: #fff;
+}
+.btn-sm.primary:hover { opacity: 0.85; }
+
+.btn-sm.secondary {
+  background: var(--surface-inset);
+  border-color: var(--border-default);
+  color: var(--text-secondary);
+}
+.btn-sm.secondary:hover { background: var(--surface-overlay); color: var(--text-primary); }
+
+/* Group list in settings */
+.group-entry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.group-entry:last-child { border-bottom: none; }
+
+.group-color-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.group-entry-name {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.group-del-btn {
+  width: 20px; height: 20px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all var(--duration-fast);
+  flex-shrink: 0;
+}
+.group-del-btn:hover {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+/* Settings add row */
+.group-add-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+}
+
+.group-add-input {
+  flex: 1;
+  padding: 5px 10px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  font: 400 12px/1.4 var(--font-ui);
+  color: var(--text-primary);
+  background: var(--surface-inset);
+  outline: none;
+}
+.group-add-input:focus {
+  border-color: var(--brand-500);
+  box-shadow: 0 0 0 2px oklch(54% 0.130 185 / 0.14);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PAGE HIDE / SHOW
+═══════════════════════════════════════════════════════════════ */
+.page { display: none; }
+.page.visible { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+
+/* demo section */
+.demo-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* wide container for design system docs */
+.ds-container {
+  width: 100%;
+  max-width: 860px;
+}
+
+.ds-title {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.03em;
+  margin-bottom: 6px;
+  text-align: center;
+}
+
+[data-theme="dark"] .ds-title { color: oklch(94% 0.005 185); }
+
+.ds-subtitle {
+  font-size: 14px;
+  color: var(--text-secondary);
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.ds-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.ds-card {
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 18px;
+  box-shadow: var(--shadow-sm);
+}
+
+[data-theme="dark"] .ds-card { background: var(--surface-raised); }
+
+.ds-card-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin-bottom: 12px;
+}
+
+/* Color swatches in design system */
+.color-strip {
+  display: flex;
+  gap: 3px;
+  margin-bottom: 6px;
+}
+
+.color-swatch {
+  flex: 1;
+  height: 28px;
+  border-radius: 4px;
+}
+
+.color-label {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  margin-top: 4px;
+}
+
+.type-tag-demo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+</style>
+</head>
+<body>
+
+<!-- Demo Controls -->
+<div class="demo-controls">
+  <button class="demo-toggle active" id="btn-light" onclick="setTheme('light')">☀ 浅色</button>
+  <button class="demo-toggle" id="btn-dark" onclick="setTheme('dark')">☾ 深色</button>
+  <button class="demo-toggle" id="btn-main" onclick="showView('main')">主界面</button>
+  <button class="demo-toggle" id="btn-settings" onclick="showView('settings')">设置</button>
+  <button class="demo-toggle" id="btn-dialog" onclick="showView('dialog')">对话框</button>
+  <button class="demo-toggle" id="btn-ds" onclick="showView('ds')">设计系统</button>
+</div>
+
+<div class="demo-wrapper">
+
+  <!-- ═════════════════════════════ MAIN VIEW ═══════════════════════════ -->
+  <div class="demo-section" id="view-main">
+    <p class="demo-section-label">主界面 — 剪贴板历史</p>
+
+    <div class="app-window">
+      <!-- Titlebar -->
+      <div class="titlebar">
+        <div class="titlebar-left">
+          <div class="app-icon">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="4" y="2" width="8" height="12" rx="1.5"/>
+              <path d="M6 2v1a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1V2"/>
+              <path d="M6 7h4M6 10h3"/>
+            </svg>
+          </div>
+          <span class="app-name">ClipForge</span>
+          <span class="app-subtitle">47 条</span>
+        </div>
+        <div class="titlebar-actions">
+          <button class="tb-btn tb-btn-settings" onclick="showView('settings')" title="设置">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M2 4h12M2 8h12M2 12h12"/>
+              <circle cx="5" cy="4" r="1.5" fill="currentColor" stroke="none"/>
+              <circle cx="10" cy="8" r="1.5" fill="currentColor" stroke="none"/>
+              <circle cx="6" cy="12" r="1.5" fill="currentColor" stroke="none"/>
+            </svg>
+          </button>
+          <button class="tb-btn tb-btn-close" title="关闭">
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+              <path d="M1 1l8 8M9 1L1 9"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Header -->
+      <div class="app-header">
+        <!-- Search -->
+        <div class="search-wrap">
+          <span class="search-icon">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="6.5" cy="6.5" r="4.5"/>
+              <path d="m13 13-2.8-2.8"/>
+            </svg>
+          </span>
+          <input class="search-input" type="text" placeholder="搜索剪贴板记录...">
+        </div>
+        <!-- Filters -->
+        <div class="filter-row">
+          <div class="filter-tabs">
+            <button class="filter-tab active">全部</button>
+            <button class="filter-tab filter-tab-text">文本</button>
+            <button class="filter-tab filter-tab-image">图片</button>
+            <button class="filter-tab filter-tab-code">代码</button>
+            <button class="filter-tab filter-tab-url">链接</button>
+            <button class="filter-tab filter-tab-email">邮箱</button>
+            <button class="filter-tab filter-tab-group work">工作代码</button>
+            <button class="filter-tab filter-tab-group address">常用地址</button>
+            <button class="filter-tab filter-tab-group design">设计资产</button>
+          </div>
+          <button class="clear-btn">
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M2 4h12M5 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1M13 4v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4"/>
+            </svg>
+            清空
+          </button>
+        </div>
+      </div>
+
+      <!-- List -->
+      <div class="item-list">
+
+        <!-- Item 1: URL -->
+        <div class="clip-item type-url">
+          <div class="tags-row">
+            <span class="type-tag tag-url">
+              <svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M7 1h4v4M11 1 5.5 6.5M2 3H1a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1V9"/></svg>
+              链接
+            </span>
+          </div>
+          <div class="item-content">https://tailwindcss.com/docs/background-color</div>
+          <div class="item-meta">
+            <span class="item-time">刚刚</span>
+            <div class="item-actions">
+              <button class="action-btn" title="分组">
+                <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3.5a1 1 0 0 1 1-1h2.5a1 1 0 0 1 .8.4l.5.6a1 1 0 0 0 .8.4H11a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5Z"/></svg>
+              </button>
+              <button class="action-btn del" title="删除">
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h12M5 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1M13 4v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4M6 7v5M10 7v5"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Item 2: Code (pinned) -->
+        <div class="clip-item type-code pinned">
+          <div class="tags-row">
+            <span class="type-tag tag-code">
+              <svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3 1 6l2 3M9 3l2 3-2 3M6 2l-1.5 8"/></svg>
+              代码
+            </span>
+            <span class="tag-group">
+              <svg width="9" height="9" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3.5a1 1 0 0 1 1-1h2.5a1 1 0 0 1 .8.4l.5.6a1 1 0 0 0 .8.4H11a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5Z"/></svg>
+              工作代码
+            </span>
+          </div>
+          <div class="item-content code-content">const clipForge = new ClipManager({ maxItems: 500 });</div>
+          <div class="item-meta">
+            <span class="item-time">2 分钟前</span>
+            <div class="item-actions">
+              <button class="action-btn" title="分组">
+                <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3.5a1 1 0 0 1 1-1h2.5a1 1 0 0 1 .8.4l.5.6a1 1 0 0 0 .8.4H11a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5Z"/></svg>
+              </button>
+              <button class="action-btn del" title="删除">
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h12M5 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1M13 4v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4M6 7v5M10 7v5"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Item 3: Text -->
+        <div class="clip-item">
+          <div class="tags-row">
+            <span class="type-tag tag-text">文本</span>
+          </div>
+          <div class="item-content">设计系统不仅仅是组件库，它是一套完整的视觉语言，确保产品在各个触点上保持一致性和可访问性。</div>
+          <div class="item-meta">
+            <span class="item-time">15 分钟前</span>
+            <div class="item-actions">
+              <button class="action-btn" title="分组">
+                <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3.5a1 1 0 0 1 1-1h2.5a1 1 0 0 1 .8.4l.5.6a1 1 0 0 0 .8.4H11a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5Z"/></svg>
+              </button>
+              <button class="action-btn del" title="删除">
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h12M5 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1M13 4v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4M6 7v5M10 7v5"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Item 4: Color -->
+        <div class="clip-item type-color">
+          <div class="tags-row">
+            <span class="type-tag tag-color">颜色</span>
+          </div>
+          <div class="color-preview">
+            <div class="color-chip" style="background: oklch(54% 0.130 185);"></div>
+            <span class="item-content" style="color: var(--text-secondary);">oklch(54% 0.130 185)</span>
+          </div>
+          <div class="item-meta">
+            <span class="item-time">1 小时前</span>
+            <div class="item-actions">
+              <button class="action-btn del" title="删除">
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h12M5 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1M13 4v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4M6 7v5M10 7v5"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Item 5: Email -->
+        <div class="clip-item type-email">
+          <div class="tags-row">
+            <span class="type-tag tag-email">
+              <svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="2.5" width="10" height="7" rx="1"/><path d="m1 3 5 4 5-4"/></svg>
+              邮箱
+            </span>
+          </div>
+          <div class="item-content">design.team@clipforge.app</div>
+          <div class="item-meta">
+            <span class="item-time">昨天</span>
+            <div class="item-actions">
+              <button class="action-btn del" title="删除">
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h12M5 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1M13 4v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4M6 7v5M10 7v5"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Item 6: Image -->
+        <div class="clip-item type-image">
+          <div class="tags-row">
+            <span class="type-tag tag-image">图片</span>
+          </div>
+          <div class="image-thumb">
+            <svg width="180" height="80" viewBox="0 0 180 80" xmlns="http://www.w3.org/2000/svg">
+              <rect width="180" height="80" fill="oklch(92% 0.02 250)"/>
+              <rect x="20" y="16" width="140" height="8" rx="4" fill="oklch(75% 0.04 250)"/>
+              <rect x="20" y="32" width="100" height="6" rx="3" fill="oklch(82% 0.03 250)"/>
+              <rect x="20" y="44" width="120" height="6" rx="3" fill="oklch(82% 0.03 250)"/>
+              <rect x="20" y="56" width="80" height="6" rx="3" fill="oklch(82% 0.03 250)"/>
+            </svg>
+          </div>
+          <div class="item-meta">
+            <span class="item-time">2 天前</span>
+            <div class="item-actions">
+              <button class="action-btn del" title="删除">
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h12M5 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1M13 4v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4M6 7v5M10 7v5"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /item-list -->
+
+      <!-- Status bar -->
+      <div class="status-bar">
+        <span class="status-count">47 条记录</span>
+        <div class="status-shortcut"></div>
+      </div>
+
+      <!-- Toast demo -->
+      <div class="toast success" style="opacity:1; pointer-events:none;">✓ 已复制到剪贴板</div>
+
+    </div><!-- /app-window main -->
+  </div><!-- /view-main -->
+
+
+  <!-- ═══════════════════════════ SETTINGS VIEW ═══════════════════════ -->
+  <div class="demo-section" id="view-settings" style="display:none">
+    <p class="demo-section-label">设置页面</p>
+
+    <div class="app-window">
+      <!-- Titlebar -->
+      <div class="titlebar">
+        <div class="titlebar-left">
+          <div class="app-icon">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="4" y="2" width="8" height="12" rx="1.5"/>
+              <path d="M6 2v1a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1V2"/>
+              <path d="M6 7h4M6 10h3"/>
+            </svg>
+          </div>
+          <span class="app-name">ClipForge</span>
+          <span class="app-subtitle">设置</span>
+        </div>
+        <div class="titlebar-actions">
+          <button class="tb-btn" onclick="showView('main')" title="返回主界面">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3L4 8l6 5"/></svg>
+          </button>
+          <button class="tb-btn tb-btn-close" title="关闭">
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+              <path d="M1 1l8 8M9 1L1 9"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Settings — sidebar + panel -->
+      <div class="settings-layout">
+        <!-- Sidebar -->
+        <div class="settings-sidebar">
+          <button class="settings-nav-item active" data-section="general">
+            <span class="settings-nav-dot" style="background: var(--brand-500);"></span>
+            常规设置
+          </button>
+          <button class="settings-nav-item" data-section="groups">
+            <span class="settings-nav-dot" style="background: var(--color-success);"></span>
+            自定义分组
+          </button>
+        </div>
+
+        <!-- Panel -->
+        <div class="settings-panel">
+
+          <!-- General Settings (all 4 sub-sections) -->
+          <div class="settings-section active" id="sec-general">
+
+            <!-- Startup -->
+            <div class="settings-group">
+              <div class="settings-group-header">
+                <div class="settings-group-icon teal">
+                  <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="5.5"/><path d="M8 4v4l3 2"/></svg>
+                </div>
+                <span class="settings-group-title">开机自启</span>
+              </div>
+              <div class="settings-row">
+                <div class="settings-row-label">
+                  <div class="settings-label-text">开机自动启动</div>
+                  <div class="settings-label-hint">系统启动时在后台运行 ClipForge</div>
+                </div>
+                <div class="toggle-wrap">
+                  <div class="toggle-track on"><div class="toggle-thumb"></div></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Shortcut -->
+            <div class="settings-group">
+              <div class="settings-group-header">
+                <div class="settings-group-icon amber">
+                  <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="1.5" y="3.5" width="13" height="9" rx="1.5"/><path d="M4.5 7.5h2M4.5 10h5"/></svg>
+                </div>
+                <span class="settings-group-title">全局快捷键</span>
+              </div>
+              <div class="settings-row">
+                <div class="settings-row-label">
+                  <div class="settings-label-text">呼出快捷键</div>
+                  <div class="settings-label-hint">点击徽章录制新快捷键</div>
+                </div>
+                <div style="display:flex; gap:6px; align-items:center;">
+                  <div class="shortcut-badge">
+                    <kbd class="kbd" style="background:transparent; border:none; padding:0; box-shadow:none; font-size:12px;">Ctrl+Shift+V</kbd>
+                  </div>
+                  <button class="btn-sm primary">应用</button>
+                </div>
+              </div>
+              <div class="settings-row">
+                <div class="settings-row-label">
+                  <div class="settings-label-hint">● 录制中 — 按下组合键即可捕获</div>
+                </div>
+                <button class="btn-sm secondary">恢复默认</button>
+              </div>
+            </div>
+
+            <!-- Storage -->
+            <div class="settings-group">
+              <div class="settings-group-header">
+                <div class="settings-group-icon purple">
+                  <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="8" cy="5.5" rx="6.5" ry="3"/><path d="M1.5 5.5v5c0 1.66 2.91 3 6.5 3s6.5-1.34 6.5-3v-5"/></svg>
+                </div>
+                <span class="settings-group-title">数据存储路径</span>
+              </div>
+              <div class="settings-row" style="padding-bottom:6px;">
+                <div class="path-display" style="flex:1;">默认路径</div>
+              </div>
+              <div class="settings-row" style="flex-wrap:wrap; border-bottom:none;">
+                <div class="settings-row-label" style="flex:1; min-width:0;">
+                  <div class="settings-label-hint">修改后需重启应用生效</div>
+                </div>
+                <div style="display:flex; gap:6px; flex-shrink:0;">
+                  <button class="btn-sm secondary">选择</button>
+                  <button class="btn-sm primary">保存</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- History -->
+            <div class="settings-group">
+              <div class="settings-group-header">
+                <div class="settings-group-icon blue">
+                  <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="11" rx="1.5"/><path d="M5 7h6M5 10h4"/></svg>
+                </div>
+                <span class="settings-group-title">历史记录限制</span>
+              </div>
+              <div class="settings-row">
+                <div class="settings-row-label">
+                  <div class="settings-label-text">最多保留条数</div>
+                  <div class="settings-label-hint">0 = 不限制（仅对未分组记录生效）</div>
+                </div>
+                <div style="display:flex; gap:6px; align-items:center;">
+                  <input class="mini-input" type="number" value="500" min="0">
+                </div>
+              </div>
+              <div class="settings-row">
+                <div class="settings-row-label">
+                  <div class="settings-label-text">最长保存天数</div>
+                  <div class="settings-label-hint">0 = 永久保留</div>
+                </div>
+                <div style="display:flex; gap:6px; align-items:center;">
+                  <input class="mini-input" type="number" value="30" min="0">
+                </div>
+              </div>
+              <div class="settings-row" style="border-bottom:none;">
+                <div style="display:flex; gap:6px; margin-left:auto;">
+                  <button class="btn-sm primary">应用</button>
+                </div>
+              </div>
+            </div>
+
+          </div><!-- /sec-general -->
+
+          <!-- Custom groups -->
+          <div class="settings-section" id="sec-groups">
+            <div class="settings-group">
+              <div class="settings-group-header">
+                <div class="settings-group-icon green">
+                  <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4a1 1 0 0 1 1-1h3.2a1 1 0 0 1 .78.38L7.8 4.6a1 1 0 0 0 .78.4H13a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V4Z"/></svg>
+                </div>
+                <span class="settings-group-title">自定义分组</span>
+              </div>
+              <div class="group-entry">
+                <div class="group-color-dot" style="background: #3498db;"></div>
+                <span class="group-entry-name" style="color: #3498db;">工作代码</span>
+                <button class="group-del-btn">
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M1 1l8 8M9 1L1 9"/></svg>
+                </button>
+              </div>
+              <div class="group-entry">
+                <div class="group-color-dot" style="background: #e91e63;"></div>
+                <span class="group-entry-name" style="color: #e91e63;">常用地址</span>
+                <button class="group-del-btn">
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M1 1l8 8M9 1L1 9"/></svg>
+                </button>
+              </div>
+              <div class="group-entry">
+                <div class="group-color-dot" style="background: #1abc9c;"></div>
+                <span class="group-entry-name" style="color: #1abc9c;">设计资产</span>
+                <button class="group-del-btn">
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M1 1l8 8M9 1L1 9"/></svg>
+                </button>
+              </div>
+              <div class="group-add-row">
+                <div style="width:10px; height:10px; border-radius:50%; background: var(--brand-400); flex-shrink:0; cursor:pointer;"></div>
+                <input class="group-add-input" type="text" placeholder="输入分组名称...">
+                <button class="btn-sm primary">添加</button>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /settings-panel -->
+      </div><!-- /settings-layout -->
+    </div>
+  </div><!-- /view-settings -->
+
+
+  <!-- ══════════════════════════ DIALOG VIEW ══════════════════════════ -->
+  <div class="demo-section" id="view-dialog" style="display:none">
+    <p class="demo-section-label">确认对话框</p>
+
+    <div class="app-window" style="height:500px; justify-content:center; align-items:center;">
+      <div class="dialog-overlay" style="position:relative; inset:auto; background:transparent; backdrop-filter:none;">
+        <div class="dialog">
+          <div class="dialog-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6M10 11v5M14 11v5"/>
+            </svg>
+          </div>
+          <div class="dialog-title">清空全部历史记录？</div>
+          <div class="dialog-desc">这将永久删除所有 <strong>47 条</strong>剪贴板记录，包括图片和文本。<br>此操作<strong>无法撤销</strong>。</div>
+          <div class="dialog-actions">
+            <button class="btn btn-ghost">取消</button>
+            <button class="btn btn-danger">
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M2 4h12M5 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1M13 4v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4"/>
+              </svg>
+              确认清空
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ═══════════════════════ DESIGN SYSTEM ═══════════════════════════ -->
+  <div class="demo-section" id="view-ds" style="display:none">
+    <p class="demo-section-label">ClipForge Design System</p>
+
+    <div class="ds-container">
+      <h1 class="ds-title">ClipForge Design System</h1>
+      <p class="ds-subtitle">以 OKLCH 色彩空间 · 8px 间距栅格 · WCAG AA 可访问性 为基础的一致性设计语言</p>
+
+      <div class="ds-grid">
+        <!-- Brand palette -->
+        <div class="ds-card">
+          <div class="ds-card-title">品牌色 — Teal-Slate</div>
+          <div class="color-strip">
+            <div class="color-swatch" style="background:oklch(97% 0.018 185);border:1px solid #eee;"></div>
+            <div class="color-swatch" style="background:oklch(93% 0.040 185);"></div>
+            <div class="color-swatch" style="background:oklch(86% 0.070 185);"></div>
+            <div class="color-swatch" style="background:oklch(76% 0.100 185);"></div>
+            <div class="color-swatch" style="background:oklch(65% 0.120 185);"></div>
+            <div class="color-swatch" style="background:oklch(54% 0.130 185);"></div>
+            <div class="color-swatch" style="background:oklch(44% 0.120 185);"></div>
+            <div class="color-swatch" style="background:oklch(35% 0.100 185);"></div>
+            <div class="color-swatch" style="background:oklch(26% 0.070 185);"></div>
+          </div>
+          <div class="color-label">50 · 100 · 200 · 300 · 400 · <strong>500 ★</strong> · 600 · 700 · 800</div>
+        </div>
+
+        <!-- Semantic colors -->
+        <div class="ds-card">
+          <div class="ds-card-title">语义色彩</div>
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <div style="width:28px; height:18px; border-radius:4px; background:oklch(58% 0.14 155); flex-shrink:0;"></div>
+              <span style="font-size:12px; color:var(--text-secondary);">成功 — success</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <div style="width:28px; height:18px; border-radius:4px; background:oklch(72% 0.18 65); flex-shrink:0;"></div>
+              <span style="font-size:12px; color:var(--text-secondary);">警告 — warning</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <div style="width:28px; height:18px; border-radius:4px; background:oklch(55% 0.19 25); flex-shrink:0;"></div>
+              <span style="font-size:12px; color:var(--text-secondary);">危险 — danger</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <div style="width:28px; height:18px; border-radius:4px; background:oklch(58% 0.16 240); flex-shrink:0;"></div>
+              <span style="font-size:12px; color:var(--text-secondary);">信息 — info</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <div style="width:28px; height:18px; border-radius:4px; background:oklch(54% 0.20 300); flex-shrink:0;"></div>
+              <span style="font-size:12px; color:var(--text-secondary);">强调 — purple</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Type tags -->
+        <div class="ds-card">
+          <div class="ds-card-title">内容类型标签</div>
+          <div class="type-tag-demo">
+            <span class="type-tag tag-url">链接</span>
+            <span class="type-tag tag-email">邮箱</span>
+            <span class="type-tag tag-code">代码</span>
+            <span class="type-tag tag-color">颜色</span>
+            <span class="type-tag tag-image">图片</span>
+            <span class="tag-group">自定义分组</span>
+          </div>
+          <div class="color-label" style="margin-top:8px;">语义色 + 透明背景，避免过度视觉噪音</div>
+        </div>
+
+        <!-- Typography -->
+        <div class="ds-card" style="grid-column:span 2;">
+          <div class="ds-card-title">字体排版系统</div>
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <div style="font-size:20px; font-weight:800; letter-spacing:-0.03em; color:var(--text-primary);">标题 · App Name — 800 weight</div>
+            <div style="font-size:14px; font-weight:700; color:var(--text-primary);">设置分组标题 — Semibold 700</div>
+            <div style="font-size:13px; font-weight:500; color:var(--text-primary);">设置项标签 / 内容正文 — Medium 500</div>
+            <div style="font-size:12px; font-weight:400; color:var(--text-secondary);">辅助说明文字 — Regular 400</div>
+            <div style="font-size:11px; font-weight:400; color:var(--text-tertiary);">时间戳 / 提示文字 — 11px</div>
+            <div style="font:600 11px/1.4 'SF Mono',monospace; letter-spacing:0.06em; text-transform:uppercase; color:var(--text-tertiary);">TYPE TAG LABEL — Mono 11px</div>
+            <div style="font-family:'SF Mono',monospace; font-size:12px; color:var(--color-purple); background:var(--color-purple-bg); padding:4px 8px; border-radius:4px; display:inline-block;">代码内容 — Monospace 12px</div>
+          </div>
+        </div>
+
+        <!-- Spacing -->
+        <div class="ds-card">
+          <div class="ds-card-title">间距栅格 (4px base)</div>
+          <div style="display:flex; flex-direction:column; gap:4px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <div style="width:4px; height:14px; background:var(--brand-400); border-radius:2px;"></div>
+              <span style="font-size:11px; color:var(--text-secondary);">sp-1 = 4px</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <div style="width:8px; height:14px; background:var(--brand-400); border-radius:2px;"></div>
+              <span style="font-size:11px; color:var(--text-secondary);">sp-2 = 8px</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <div style="width:12px; height:14px; background:var(--brand-400); border-radius:2px;"></div>
+              <span style="font-size:11px; color:var(--text-secondary);">sp-3 = 12px</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <div style="width:16px; height:14px; background:var(--brand-400); border-radius:2px;"></div>
+              <span style="font-size:11px; color:var(--text-secondary);">sp-4 = 16px — base unit</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <div style="width:24px; height:14px; background:var(--brand-400); border-radius:2px;"></div>
+              <span style="font-size:11px; color:var(--text-secondary);">sp-6 = 24px</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Shadows -->
+        <div class="ds-card" style="grid-column:span 3;">
+          <div class="ds-card-title">圆角 & 阴影层级</div>
+          <div style="display:flex; gap:20px; align-items:flex-end; padding:8px 0;">
+            <div style="width:60px; height:40px; background:var(--surface-raised); border-radius:4px; box-shadow:0 1px 2px oklch(14% 0.005 185 / 0.06); display:flex; align-items:center; justify-content:center; font-size:10px; color:var(--text-tertiary);">xs</div>
+            <div style="width:70px; height:50px; background:var(--surface-raised); border-radius:6px; box-shadow:0 2px 6px oklch(14% 0.005 185 / 0.08), 0 1px 2px oklch(14% 0.005 185 / 0.04); display:flex; align-items:center; justify-content:center; font-size:10px; color:var(--text-tertiary);">sm</div>
+            <div style="width:80px; height:60px; background:var(--surface-raised); border-radius:8px; box-shadow:0 4px 12px oklch(14% 0.005 185 / 0.10), 0 2px 4px oklch(14% 0.005 185 / 0.05); display:flex; align-items:center; justify-content:center; font-size:10px; color:var(--text-tertiary);">md</div>
+            <div style="width:90px; height:70px; background:var(--surface-raised); border-radius:10px; box-shadow:0 8px 24px oklch(14% 0.005 185 / 0.12), 0 3px 8px oklch(14% 0.005 185 / 0.06); display:flex; align-items:center; justify-content:center; font-size:10px; color:var(--text-tertiary);">lg</div>
+            <div style="width:100px; height:80px; background:var(--surface-raised); border-radius:12px; box-shadow:0 16px 48px oklch(14% 0.005 185 / 0.15), 0 6px 16px oklch(14% 0.005 185 / 0.08); display:flex; align-items:center; justify-content:center; font-size:10px; color:var(--text-tertiary);">xl</div>
+            <div style="margin-left:auto; font-size:11px; color:var(--text-tertiary); line-height:1.6; text-align:right;">
+              所有阴影使用 OKLCH 色彩空间<br>
+              暗色模式 — 改用表面高度区分层级<br>
+              圆角: 4 / 6 / 8 / 10 / 12 / 16px
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div><!-- /view-ds -->
+
+</div><!-- /demo-wrapper -->
+
+<script>
+function setTheme(t) {
+  document.documentElement.setAttribute('data-theme', t);
+  document.getElementById('btn-light').classList.toggle('active', t === 'light');
+  document.getElementById('btn-dark').classList.toggle('active', t === 'dark');
+}
+
+function showView(v) {
+  ['main','settings','dialog','ds'].forEach(id => {
+    document.getElementById('view-' + id).style.display = id === v ? 'flex' : 'none';
+  });
+  ['btn-main','btn-settings','btn-dialog','btn-ds'].forEach(id => {
+    const key = id.replace('btn-', '');
+    document.getElementById(id).classList.toggle('active', key === v);
+  });
+  // layout fix: ds is a flex row
+  if (v === 'ds') {
+    document.getElementById('view-ds').style.flexDirection = 'column';
+    document.getElementById('view-ds').style.alignItems = 'center';
+  }
+}
+
+// Init: show main by default
+showView('main');
+
+// Settings sidebar navigation (2 categories)
+document.querySelectorAll('.settings-nav-item').forEach(item => {
+  item.addEventListener('click', function() {
+    const section = this.dataset.section;
+    // Toggle nav active
+    document.querySelectorAll('.settings-nav-item').forEach(n => n.classList.remove('active'));
+    this.classList.add('active');
+    // Toggle section visibility
+    document.querySelectorAll('.settings-section').forEach(s => s.classList.remove('active'));
+    document.getElementById('sec-' + section).classList.add('active');
+  });
+});
+</script>
+</body>
+</html>

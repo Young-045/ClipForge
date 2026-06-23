@@ -40,16 +40,28 @@ const TYPE_GROUPS = [
   { key: "email", label: "邮箱" },
 ] as const;
 
-// content_type → display label (backend computes type dynamically)
+// content_type -> display label
 const TYPE_LABEL: Record<string, string> = {
+  text: "文本",
   url: "链接",
   email: "邮箱",
   code: "代码",
   color: "颜色",
   image: "图片",
+  path: "路径",
 };
 
 // ── App ─────────────────────────────────────────────────────────────
+function isLightColor(hex: string): boolean {
+  if (!hex || hex.length < 7) return false;
+  const r = parseInt(hex.substring(1, 3), 16);
+  const g = parseInt(hex.substring(3, 5), 16);
+  const b = parseInt(hex.substring(5, 7), 16);
+  // relative luminance (sRGB)
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.6;
+}
+
 function App() {
   const [page, setPage] = useState<"main" | "settings">("main");
 
@@ -81,24 +93,15 @@ function App() {
   // Decide which Rust command to call based on filter
   function resolveFilterInvoke() {
     if (filter.kind === "type") {
-      return {
-        cmd: "list_items_by_type" as const,
-        args: { contentType: filter.content_type },
-      };
+      return { cmd: "list_items_by_type" as const, args: { contentType: filter.content_type } };
     }
     if (filter.kind === "group") {
-      return {
-        cmd: "list_items_by_group" as const,
-        args: { groupId: filter.group_id },
-      };
+      return { cmd: "list_items_by_group" as const, args: { groupId: filter.group_id } };
     }
-    return {
-      cmd: "list_recent_items" as const,
-      args: {} as Record<string, never>,
-    };
+    return { cmd: "list_recent_items" as const, args: {} as Record<string, never> };
   }
 
-  // ── Load paginated items (no search) ────────────────────────────
+  // ── Load paginated items ────────────────────────────────────────
   const loadItems = useCallback(
     async (reset = false) => {
       if (loadingRef.current) return;
@@ -122,12 +125,8 @@ function App() {
           if (item.content_type === "image" && item.image_path) {
             setImageCache((prev) => {
               if (prev[item.image_path]) return prev;
-              invoke<string>("get_image_base64", {
-                imagePath: item.image_path,
-              })
-                .then((dataUrl) => {
-                  setImageCache((p) => ({ ...p, [item.image_path]: dataUrl }));
-                })
+              invoke<string>("get_image_base64", { imagePath: item.image_path })
+                .then((dataUrl) => setImageCache((p) => ({ ...p, [item.image_path]: dataUrl })))
                 .catch(() => {});
               return prev;
             });
@@ -155,79 +154,60 @@ function App() {
   }, []);
 
   // ── Server-side search ───────────────────────────────────────────
-  const doSearch = useCallback(async (keyword: string) => {
-    const trimmed = keyword.trim();
-    if (!trimmed) {
-      setOffset(0);
-      setHasMore(true);
-      try {
-        const { cmd, args } = resolveFilterInvoke();
-        const result = await invoke<ClipboardItem[]>(cmd, {
-          ...args,
-          offset: 0,
-          limit: PAGE_SIZE,
-        });
-        setItems(result);
-        setOffset(result.length);
-        setHasMore(result.length >= PAGE_SIZE);
-      } catch (e) {
-        console.error("Failed to reload items:", e);
+  const doSearch = useCallback(
+    async (keyword: string) => {
+      const trimmed = keyword.trim();
+      if (!trimmed) {
+        setOffset(0);
+        setHasMore(true);
+        try {
+          const { cmd, args } = resolveFilterInvoke();
+          const result = await invoke<ClipboardItem[]>(cmd, { ...args, offset: 0, limit: PAGE_SIZE });
+          setItems(result);
+          setOffset(result.length);
+          setHasMore(result.length >= PAGE_SIZE);
+        } catch (e) {
+          console.error("Failed to reload items:", e);
+        }
+        return;
       }
-      return;
-    }
-
-    try {
-      const result = await invoke<ClipboardItem[]>("search_items", {
-        keyword: trimmed,
-      });
-      setItems(result);
-      setHasMore(false);
-    } catch (e) {
-      console.error("Search failed:", e);
-    }
+      try {
+        const result = await invoke<ClipboardItem[]>("search_items", { keyword: trimmed });
+        setItems(result);
+        setHasMore(false);
+      } catch (e) {
+        console.error("Search failed:", e);
+      }
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filter]);
+    [filter]
+  );
 
   // Debounced search
   useEffect(() => {
     if (searchTimer.current) clearTimeout(searchTimer.current);
-    searchTimer.current = setTimeout(() => {
-      void doSearch(search);
-    }, SEARCH_DEBOUNCE_MS);
-    return () => {
-      if (searchTimer.current) clearTimeout(searchTimer.current);
-    };
+    searchTimer.current = setTimeout(() => void doSearch(search), SEARCH_DEBOUNCE_MS);
+    return () => { if (searchTimer.current) clearTimeout(searchTimer.current); };
   }, [search, doSearch]);
 
   // Initial load + clipboard updates
   useEffect(() => {
     loadItems(true);
-    const setup = listen("clipboard-update", () => {
-      loadItems(true);
-    });
-    return () => {
-      setup.then((fn) => fn());
-    };
+    const setup = listen("clipboard-update", () => loadItems(true));
+    return () => { setup.then((fn) => fn()); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter, refreshSig]);
 
   // Load groups on startup
-  useEffect(() => {
-    loadGroups();
-  }, [refreshSig, loadGroups]);
+  useEffect(() => { loadGroups(); }, [refreshSig, loadGroups]);
 
-  // Infinite scroll — auto load more when near bottom
+  // Infinite scroll
   useEffect(() => {
     const el = listScrollRef.current;
     if (!el) return;
     const handleScroll = () => {
       const threshold = 120;
-      if (
-        el.scrollHeight - el.scrollTop - el.clientHeight < threshold &&
-        hasMore &&
-        !loadingMore &&
-        !search
-      ) {
+      if (el.scrollHeight - el.scrollTop - el.clientHeight < threshold && hasMore && !loadingMore && !search) {
         loadItems(false);
       }
     };
@@ -242,9 +222,7 @@ function App() {
 
   // Disable native context menu
   useEffect(() => {
-    function preventContextMenu(e: MouseEvent) {
-      e.preventDefault();
-    }
+    function preventContextMenu(e: MouseEvent) { e.preventDefault(); }
     document.addEventListener("contextmenu", preventContextMenu);
     return () => document.removeEventListener("contextmenu", preventContextMenu);
   }, []);
@@ -252,17 +230,12 @@ function App() {
   // auto-hide
   useEffect(() => {
     const setup = listen("auto-hide", () => {
-      void invoke("hide_window").catch(() => {
-        getCurrentWindow().hide().catch(() => {});
-      });
+      void invoke("hide_window").catch(() => getCurrentWindow().hide().catch(() => {}));
     });
-    return () => {
-      setup.then((fn) => fn());
-    };
+    return () => { setup.then((fn) => fn()); };
   }, []);
 
-  // ── Item actions ────────────────────────────────────────────────
-
+  // ── Item actions ──────────────────────────────────────────────────
   async function copyAndPaste(content: string) {
     if (!content) return;
     try {
@@ -301,15 +274,12 @@ function App() {
   async function moveToGroup(itemId: number, groupId: number | null, groupName?: string | null) {
     try {
       await invoke("set_item_group", { itemId, groupId });
-      // When viewing a group filter and removing from group, drop it from the list.
       if (filter.kind === "group" && groupId === null) {
         setItems((prev) => prev.filter((it) => it.id !== itemId));
       } else {
         setItems((prev) =>
           prev.map((it) =>
-            it.id === itemId
-              ? { ...it, group_id: groupId ?? undefined, group_name: groupName ?? undefined }
-              : it
+            it.id === itemId ? { ...it, group_id: groupId ?? undefined, group_name: groupName ?? undefined } : it
           )
         );
       }
@@ -328,66 +298,81 @@ function App() {
   }
 
   async function hideApp() {
-    await invoke("hide_window").catch(() => {
-      getCurrentWindow().hide().catch(() => {});
-    });
+    await invoke("hide_window").catch(() => getCurrentWindow().hide().catch(() => {}));
   }
 
-  // ── Titlebar ──────────────────────────────────────────────────
-  const titlebar = (
-    <div className="titlebar" data-tauri-drag-region onContextMenu={(e) => e.preventDefault()}>
-      <span className="titlebar-name">
-        {page === "settings" ? "ClipForge · 设置" : "ClipForge"}
-      </span>
-      <div className="titlebar-actions">
-        {page === "settings" ? (
-          <button
-            className="tb-btn"
-            title="返回主界面"
-            onClick={() => goToPage("main")}
-          >
-            ←
+  // ── Titlebar ──────────────────────────────────────────────────────
+  function Titlebar() {
+    const isSettings = page === "settings";
+    return (
+      <div className="titlebar" data-tauri-drag-region onContextMenu={(e) => e.preventDefault()}>
+        <div className="titlebar-left">
+          <div className="app-icon">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="4" y="2" width="8" height="12" rx="1.5" />
+              <path d="M6 2v1a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1V2" />
+              <path d="M6 7h4M6 10h3" />
+            </svg>
+          </div>
+          <span className="app-name">ClipForge</span>
+          {isSettings ? (
+            <span className="app-badge">设置</span>
+          ) : (
+            <span className="app-badge">{items.length} 条</span>
+          )}
+        </div>
+        <div className="titlebar-right">
+          {isSettings ? (
+            <button className="tb-btn" title="返回主界面" onClick={() => goToPage("main")}>
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M10 3L4 8l6 5" />
+              </svg>
+            </button>
+          ) : (
+            <button className="tb-btn" title="设置" onClick={() => goToPage("settings")}>
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="4.5" cy="4" r="1.3" />
+                <line x1="7" y1="4" x2="14" y2="4" />
+                <circle cx="4.5" cy="8" r="1.3" />
+                <line x1="7" y1="8" x2="14" y2="8" />
+                <circle cx="4.5" cy="12" r="1.3" />
+                <line x1="7" y1="12" x2="14" y2="12" />
+              </svg>
+            </button>
+          )}
+          <button className="tb-btn tb-btn-close" title="关闭窗口" onClick={hideApp}>
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+              <path d="M1 1l8 8M9 1L1 9" />
+            </svg>
           </button>
-        ) : (
-          <button
-            className="tb-btn"
-            title="设置"
-            onClick={() => goToPage("settings")}
-          >
-            ⚙
-          </button>
-        )}
-        <button className="tb-btn tb-close" title="关闭窗口" onClick={hideApp}>
-          ✕
-        </button>
+        </div>
       </div>
-    </div>
-  );
+    );
+  }
 
+  // ── Main Page ────────────────────────────────────────────────────
   if (page === "main") {
     return (
       <main>
-        {titlebar}
+        <Titlebar />
         <div className="list-area">
-          <header>
-            <div className="toolbar">
+          {/* Header: search + filters + clear */}
+          <div className="list-area-header">
+            <div className="search-wrap">
               <input
                 type="text"
+                className="search-input"
                 placeholder="搜索剪贴板历史..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-            {/* ── Filter tabs + clear button ────────────── */}
+
             <div className="filter-row">
               <div className="filter-tabs">
                 <button
                   className={`filter-tab filter-tab-all${filter.kind === "all" ? " active" : ""}`}
-                  onClick={() => {
-                    setFilter({ kind: "all" });
-                    setOffset(0);
-                    setHasMore(true);
-                  }}
+                  onClick={() => { setFilter({ kind: "all" }); setOffset(0); setHasMore(true); }}
                 >
                   全部
                 </button>
@@ -395,40 +380,21 @@ function App() {
                   <button
                     key={tg.key}
                     className={`filter-tab filter-tab-${tg.key}${
-                      filter.kind === "type" &&
-                      filter.content_type === tg.key
-                        ? " active"
-                        : ""
+                      filter.kind === "type" && filter.content_type === tg.key ? " active" : ""
                     }`}
-                    onClick={() => {
-                      setFilter({ kind: "type", content_type: tg.key });
-                      setOffset(0);
-                      setHasMore(true);
-                    }}
+                    onClick={() => { setFilter({ kind: "type", content_type: tg.key }); setOffset(0); setHasMore(true); }}
                   >
                     {tg.label}
                   </button>
                 ))}
                 {customGroups.map((cg) => {
-                  const isCustomActive = filter.kind === "group" && filter.group_id === cg.id;
+                  const isActive = filter.kind === "group" && filter.group_id === cg.id;
                   return (
                     <button
                       key={cg.id}
-                      className={`filter-tab filter-tab-custom${isCustomActive ? " active" : ""}`}
-                      style={
-                        isCustomActive && cg.color
-                          ? { background: cg.color, borderColor: cg.color, color: "#fff" }
-                          : undefined
-                      }
-                      onClick={() => {
-                        setFilter({
-                          kind: "group",
-                          group_id: cg.id,
-                          group_name: cg.name,
-                        });
-                        setOffset(0);
-                        setHasMore(true);
-                      }}
+                      className={`filter-tab filter-tab-custom${isActive ? " active" : ""}`}
+                      style={isActive && cg.color ? { background: cg.color, borderColor: cg.color, color: isLightColor(cg.color) ? "#222" : "#fff" } : undefined}
+                      onClick={() => { setFilter({ kind: "group", group_id: cg.id, group_name: cg.name }); setOffset(0); setHasMore(true); }}
                     >
                       {cg.name}
                     </button>
@@ -450,36 +416,30 @@ function App() {
                 清空
               </button>
             </div>
-            {popup && (
-              <div className={`popup-toast${popupError ? " error" : ""}`}>
-                {popup}
-              </div>
-            )}
-          </header>
-          {/* ── Confirmation dialog — outside header so it covers full list-area ── */}
+          </div>
+
+          {/* Toast inside list-area for relative positioning */}
+          {popup && <div className={`popup-toast${popupError ? " error" : ""}`}>{popup}</div>}
+
+          {/* Confirm dialog */}
           {confirmClear && (
             <div className="confirm-overlay" onClick={() => setConfirmClear(false)}>
               <div className="confirm-dialog" onClick={(e) => e.stopPropagation()}>
                 <p className="confirm-msg">确认清空全部历史记录？</p>
                 <p className="confirm-sub">此操作不可撤销</p>
                 <div className="confirm-actions">
-                  <button className="confirm-cancel" onClick={() => setConfirmClear(false)}>
-                    取消
-                  </button>
-                  <button className="confirm-ok" onClick={() => { setConfirmClear(false); clearAll(); }}>
-                    确认清空
-                  </button>
+                  <button className="confirm-cancel" onClick={() => setConfirmClear(false)}>取消</button>
+                  <button className="confirm-ok" onClick={() => { setConfirmClear(false); clearAll(); }}>确认清空</button>
                 </div>
               </div>
             </div>
           )}
 
+          {/* Item list */}
           {items.length === 0 ? (
-            <div className="empty">
-              {search ? "无匹配结果" : "暂无剪贴板历史"}
-            </div>
+            <div className="empty">{search ? "无匹配结果" : "暂无剪贴板历史"}</div>
           ) : (
-            <ul ref={listScrollRef}>
+            <ul className="item-list" ref={listScrollRef}>
               {items.map((item) => (
                 <ListItem
                   key={item.id}
@@ -493,7 +453,6 @@ function App() {
                   onMoveToGroup={moveToGroup}
                 />
               ))}
-
               {!search && hasMore && (
                 <li className="load-more-li">
                   <span className="load-more-hint">加载中...</span>
@@ -501,27 +460,35 @@ function App() {
               )}
             </ul>
           )}
+
+          {/* Status bar */}
+          {items.length > 0 && (
+            <div className="status-bar">
+              <span className="status-count">{items.length} 条记录</span>
+            </div>
+          )}
         </div>
       </main>
     );
   }
 
+  // ── Settings Page ─────────────────────────────────────────────────
   return (
     <main>
-      {titlebar}
-      <div className="list-area">
-        <SettingsPage
-          showPopup={showPopup}
-          popup={popup}
-          popupError={popupError}
-          onSettingsChanged={() => setRefreshSig((s) => s + 1)}
-        />
-      </div>
+      <Titlebar />
+      <SettingsPage
+        showPopup={showPopup}
+        popup={popup}
+        popupError={popupError}
+        onSettingsChanged={() => setRefreshSig((s) => s + 1)}
+      />
     </main>
   );
 }
 
-// ── Color Picker Swatch (preset swatches + hex input + native picker) ──
+// ═══════════════════════════════════════════════════════════════════
+// COLOR PICKER SWATCH
+// ═══════════════════════════════════════════════════════════════════
 const GROUP_PRESET_COLORS = [
   "#e74c3c", "#e67e22", "#f1c40f", "#2ecc71",
   "#1abc9c", "#3498db", "#9b59b6", "#e91e63",
@@ -535,49 +502,33 @@ function ColorPickerSwatch({ value, onChange }: { value: string; onChange: (colo
   const pickerRef = useRef<HTMLDivElement>(null);
   const dotRef = useRef<HTMLButtonElement>(null);
 
-  // Sync external value into hexInput
-  useEffect(() => {
-    setHexInput(value || "");
-  }, [value]);
+  useEffect(() => { setHexInput(value || ""); }, [value]);
 
-  // Close on click outside
   useEffect(() => {
     if (!showPicker) return;
     function handleClick(e: MouseEvent) {
-      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
-        setShowPicker(false);
-      }
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) setShowPicker(false);
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, [showPicker]);
 
-  function handlePreset(c: string) {
-    setHexInput(c);
-    onChange(c);
-    setShowPicker(false);
-  }
+  function handlePreset(c: string) { setHexInput(c); onChange(c); setShowPicker(false); }
 
   function handleHexChange(raw: string) {
     const v = raw.trim();
     setHexInput(v);
-    // Validate hex format before applying
-    if (/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(v)) {
-      onChange(v);
-    } else if (v === "") {
-      onChange("");
-    }
+    if (/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(v)) onChange(v);
+    else if (v === "") onChange("");
   }
 
   function handleNativeChange(e: React.ChangeEvent<HTMLInputElement>) {
     const c = e.target.value;
-    setHexInput(c);
-    onChange(c);
+    setHexInput(c); onChange(c);
   }
 
   return (
     <div className="color-swatch-wrapper" ref={pickerRef}>
-      {/* Trigger dot */}
       <button
         ref={dotRef}
         className="color-swatch-dot"
@@ -587,10 +538,9 @@ function ColorPickerSwatch({ value, onChange }: { value: string; onChange: (colo
           const nextShow = !showPicker;
           if (nextShow && dotRef.current) {
             const rect = dotRef.current.getBoundingClientRect();
-            // Panel above dot, shifted right while keeping the arrow aimed at the dot.
             setPanelPos({
               bottom: window.innerHeight - rect.top + 12,
-              right: window.innerWidth - rect.right - 20
+              right: window.innerWidth - rect.right - 20,
             });
           }
           setShowPicker(nextShow);
@@ -598,12 +548,7 @@ function ColorPickerSwatch({ value, onChange }: { value: string; onChange: (colo
         title={value || "选择颜色"}
       />
       {showPicker && (
-        <div
-          className="color-picker-panel"
-          style={{ position: "fixed", bottom: panelPos.bottom, right: panelPos.right }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Preset grid */}
+        <div className="color-picker-panel" style={{ position: "fixed", bottom: panelPos.bottom, right: panelPos.right }} onClick={(e) => e.stopPropagation()}>
           <div className="color-presets">
             {GROUP_PRESET_COLORS.map((c) => (
               <button
@@ -615,35 +560,10 @@ function ColorPickerSwatch({ value, onChange }: { value: string; onChange: (colo
               />
             ))}
           </div>
-          {/* Hex input + native picker */}
           <div className="color-hex-row">
-            <input
-              type="text"
-              className="color-hex-input"
-              value={hexInput}
-              placeholder="#ff5722"
-              maxLength={7}
-              onChange={(e) => handleHexChange(e.target.value)}
-              onClick={(e) => e.stopPropagation()}
-            />
-            <input
-              type="color"
-              className="color-native-picker"
-              value={hexInput || "#555555"}
-              onChange={handleNativeChange}
-              onClick={(e) => e.stopPropagation()}
-            />
-            <button
-              className="color-clear-btn"
-              onClick={(e) => {
-                e.stopPropagation();
-                setHexInput("");
-                onChange("");
-                setShowPicker(false);
-              }}
-            >
-              无
-            </button>
+            <input type="text" className="color-hex-input" value={hexInput} placeholder="#ff5722" maxLength={7} onChange={(e) => handleHexChange(e.target.value)} onClick={(e) => e.stopPropagation()} />
+            <input type="color" className="color-native-picker" value={hexInput || "#555555"} onChange={handleNativeChange} onClick={(e) => e.stopPropagation()} />
+            <button className="color-clear-btn" onClick={(e) => { e.stopPropagation(); setHexInput(""); onChange(""); setShowPicker(false); }}>无</button>
           </div>
         </div>
       )}
@@ -651,7 +571,9 @@ function ColorPickerSwatch({ value, onChange }: { value: string; onChange: (colo
   );
 }
 
-// ── Settings page ───────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════
+// SETTINGS PAGE
+// ═══════════════════════════════════════════════════════════════════
 function SettingsPage({
   showPopup,
   popup,
@@ -663,11 +585,10 @@ function SettingsPage({
   popupError: boolean;
   onSettingsChanged: () => void;
 }) {
+  const [activeSection, setActiveSection] = useState<"general" | "groups">("general");
+
   // -- shortcut --
-  const [shortcut, setShortcut] = useState(() => {
-    const stored = localStorage.getItem(SHORTCUT_STORAGE_KEY);
-    return stored || DEFAULT_SHORTCUT;
-  });
+  const [shortcut, setShortcut] = useState(() => localStorage.getItem(SHORTCUT_STORAGE_KEY) || DEFAULT_SHORTCUT);
   const [recording, setRecording] = useState(false);
 
   // -- limits --
@@ -690,51 +611,22 @@ function SettingsPage({
 
   // Load all config on mount
   useEffect(() => {
-    invoke<string>("get_shortcut")
-      .then((s) => {
-        setShortcut(s);
-      })
-      .catch(() => {});
-
-    invoke<string>("get_db_path")
-      .then(setDbPath)
-      .catch(() => {});
-
-    invoke<string | null>("get_config_value", { key: "max_items" })
-      .then((v) => setMaxItems(v || "0"))
-      .catch(() => {});
-
-    invoke<string | null>("get_config_value", { key: "max_retention_days" })
-      .then((v) => setMaxRetention(v || "0"))
-      .catch(() => {});
-
-    invoke<boolean>("get_autostart")
-      .then(setAutoStart)
-      .catch(() => {});
-
-    invoke<CustomGroup[]>("list_groups")
-      .then(setGroups)
-      .catch(() => {});
+    invoke<string>("get_shortcut").then(setShortcut).catch(() => {});
+    invoke<string>("get_db_path").then(setDbPath).catch(() => {});
+    invoke<string | null>("get_config_value", { key: "max_items" }).then((v) => setMaxItems(v || "0")).catch(() => {});
+    invoke<string | null>("get_config_value", { key: "max_retention_days" }).then((v) => setMaxRetention(v || "0")).catch(() => {});
+    invoke<boolean>("get_autostart").then(setAutoStart).catch(() => {});
+    invoke<CustomGroup[]>("list_groups").then(setGroups).catch(() => {});
   }, []);
 
-  // ── keyboard recording ──────────────────────────────────────────
+  // ── keyboard recording ─────────────────────────────────────────
   useEffect(() => {
     if (!recording) return;
-
     function onKeyDown(e: KeyboardEvent) {
       if (!(e.ctrlKey || e.altKey || e.metaKey || e.shiftKey)) return;
       const key = e.key;
-      if (
-        key === "Control" ||
-        key === "Shift" ||
-        key === "Alt" ||
-        key === "Meta"
-      )
-        return;
-
-      e.preventDefault();
-      e.stopPropagation();
-      e.stopImmediatePropagation();
+      if (key === "Control" || key === "Shift" || key === "Alt" || key === "Meta") return;
+      e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
 
       const parts: string[] = [];
       if (e.ctrlKey) parts.push("Control");
@@ -746,38 +638,22 @@ function SettingsPage({
       const combo = parts.join("+");
       setShortcut(combo);
       showPopup(`已捕获: ${formatShortcut(combo)} — 点"应用"生效`);
-
-      function onKeyUp(e2: KeyboardEvent) {
-        e2.preventDefault();
-        e2.stopPropagation();
-        window.removeEventListener("keyup", onKeyUp, true);
-      }
+      function onKeyUp(e2: KeyboardEvent) { e2.preventDefault(); e2.stopPropagation(); window.removeEventListener("keyup", onKeyUp, true); }
       window.addEventListener("keyup", onKeyUp, true);
     }
-
     window.addEventListener("keydown", onKeyDown, true);
-    return () => {
-      window.removeEventListener("keydown", onKeyDown, true);
-    };
+    return () => window.removeEventListener("keydown", onKeyDown, true);
   }, [recording]);
 
   function formatShortcut(s: string) {
-    return s
-      .replace(/CommandOrControl/g, "Ctrl")
-      .replace(/CmdOrCtrl/g, "Ctrl")
-      .replace(/Control/g, "Ctrl")
-      .replace(/Command/g, "\u2318")
-      .replace(/Shift/g, "\u21E7")
-      .replace(/Alt/g, "Alt")
-      .replace(/Super/g, "\u229E")
-      .replace(/Meta/g, "\u229E");
+    return s.replace(/CommandOrControl/g, "Ctrl").replace(/CmdOrCtrl/g, "Ctrl")
+      .replace(/Control/g, "Ctrl").replace(/Command/g, "\u2318")
+      .replace(/Shift/g, "\u21E7").replace(/Alt/g, "Alt")
+      .replace(/Super/g, "\u229E").replace(/Meta/g, "\u229E");
   }
 
   async function commitShortcut(newShortcut: string) {
-    if (!newShortcut || newShortcut.trim().length < 2) {
-      showPopup("快捷键格式无效", true);
-      return;
-    }
+    if (!newShortcut || newShortcut.trim().length < 2) { showPopup("快捷键格式无效", true); return; }
     setRecording(false);
     try {
       await invoke("set_shortcut", { shortcut: newShortcut });
@@ -786,127 +662,86 @@ function SettingsPage({
       showPopup(`✓ 快捷键已设为 ${formatShortcut(newShortcut)}`);
     } catch (e: any) {
       const msg = String(e);
-      if (msg.includes("已被其他程序占用")) {
-        showPopup("✗ 该快捷键已被其他程序占用，请尝试其他组合", true);
-      } else {
-        showPopup("✗ 注册失败，请尝试其他组合（可手动输入）", true);
-      }
+      if (msg.includes("已被其他程序占用")) showPopup("✗ 该快捷键已被其他程序占用，请尝试其他组合", true);
+      else showPopup("✗ 注册失败，请尝试其他组合（可手动输入）", true);
     }
   }
 
-  async function restoreDefault() {
-    setShortcut(DEFAULT_SHORTCUT);
-    await commitShortcut(DEFAULT_SHORTCUT);
-  }
+  async function restoreDefault() { setShortcut(DEFAULT_SHORTCUT); await commitShortcut(DEFAULT_SHORTCUT); }
 
-  // ── autostart ───────────────────────────────────────────────────
   async function toggleAutostart(val: boolean) {
     setAutoStart(val);
-    try {
-      await invoke("set_autostart", { enable: val });
-      showPopup(val ? "✓ 已开启开机自启动" : "✓ 已关闭开机自启动");
-    } catch (e) {
-      showPopup(`✗ 操作失败: ${String(e)}`, true);
-      setAutoStart(!val); // revert
-    }
+    try { await invoke("set_autostart", { enable: val }); showPopup(val ? "✓ 已开启开机自启动" : "✓ 已关闭开机自启动"); }
+    catch (e) { showPopup(`✗ 操作失败: ${String(e)}`, true); setAutoStart(!val); }
   }
 
-  // ── limits ──────────────────────────────────────────────────────
   async function saveLimits() {
     const m = parseInt(maxItems || "0", 10) || 0;
     const d = parseInt(maxRetention || "0", 10) || 0;
     try {
-      await invoke("set_config_value", {
-        key: "max_items",
-        value: String(m),
-      });
-      await invoke("set_config_value", {
-        key: "max_retention_days",
-        value: String(d),
-      });
+      await invoke("set_config_value", { key: "max_items", value: String(m) });
+      await invoke("set_config_value", { key: "max_retention_days", value: String(d) });
       showPopup("✓ 限制配置已保存");
-    } catch (e) {
-      showPopup("✗ 保存失败", true);
-    }
+    } catch (e) { showPopup("✗ 保存失败", true); }
   }
 
-  // ── db path ─────────────────────────────────────────────────────
-  const dbFolder = dbPath
-    ? dbPath.replace(/[\\/]clipforge\.db$/i, "")
-    : "";
+  const dbFolder = dbPath ? dbPath.replace(/[\\/]clipforge\.db$/i, "").replace(/[\\/]$/, "") : "";
+  const dbFolderShort = dbFolder ? (() => {
+    const parts = dbFolder.split(/[\\/]/);
+    return parts[parts.length - 1] || dbFolder;
+  })() : "";
 
   async function pickFolder() {
     try {
-      const selected = await open({
-        directory: true,
-        multiple: false,
-        title: "选择数据库存储文件夹",
-      });
+      const selected = await open({ directory: true, multiple: false, title: "选择数据库存储文件夹" });
       if (selected && typeof selected === "string") {
         const folder = (selected as string).replace(/[\\/]$/, "");
         const sep = folder.includes("/") ? "/" : "\\";
-        const fullPath = `${folder}${sep}clipboard.db`;
-        setDbPath(fullPath);
+        setDbPath(`${folder}${sep}clipboard.db`);
       }
-    } catch (e) {
-      showPopup("选择文件夹失败", true);
-    }
+    } catch (e) { showPopup("选择文件夹失败", true); }
   }
 
   async function saveDbPath() {
-    try {
-      await invoke("set_db_path", { path: dbPath });
-      showPopup("✓ 数据库路径已保存，重启后生效");
-    } catch (e) {
-      showPopup("✗ 保存失败", true);
-    }
+    try { await invoke("set_db_path", { path: dbPath }); showPopup("✓ 数据库路径已保存，重启后生效"); }
+    catch (e) { showPopup("✗ 保存失败", true); }
   }
 
-  // ── groups ──────────────────────────────────────────────────────
+  async function restoreDefaultDbPath() {
+    setDbPath("");
+    try { await invoke("set_db_path", { path: "" }); showPopup("✓ 已恢复默认路径（需重启）"); }
+    catch (e) { showPopup("✗ 恢复失败", true); }
+  }
+
   async function addGroup() {
     const name = newGroupName.trim();
     if (!name) return;
     try {
       const g = await invoke<CustomGroup>("create_group", { name, color: newGroupColor || null });
       setGroups((prev) => [...prev, g]);
-      setNewGroupName("");
-      setNewGroupColor("");
+      setNewGroupName(""); setNewGroupColor("");
       onSettingsChanged();
       showPopup(`✓ 已创建分组「${name}」`);
-    } catch (e) {
-      showPopup(`✗ 创建失败: ${String(e)}`, true);
-    }
+    } catch (e) { showPopup(`✗ 创建失败: ${String(e)}`, true); }
   }
 
   async function renameGroup(id: number) {
     const name = editGroupName.trim();
-    if (!name) {
-      setEditingGroupId(null);
-      return;
-    }
+    if (!name) { setEditingGroupId(null); return; }
     try {
       await invoke("rename_group", { groupId: id, name });
-      setGroups((prev) =>
-        prev.map((g) => (g.id === id ? { ...g, name } : g))
-      );
-      setEditingGroupId(null);
-      onSettingsChanged();
+      setGroups((prev) => prev.map((g) => (g.id === id ? { ...g, name } : g)));
+      setEditingGroupId(null); onSettingsChanged();
       showPopup(`✓ 已重命名为「${name}」`);
-    } catch (e) {
-      showPopup(`✗ 重命名失败: ${String(e)}`, true);
-    }
+    } catch (e) { showPopup(`✗ 重命名失败: ${String(e)}`, true); }
   }
 
   async function updateGroupColor(id: number, color: string) {
     try {
       await invoke("update_group_color", { groupId: id, color: color || null });
-      setGroups((prev) =>
-        prev.map((g) => (g.id === id ? { ...g, color: color || undefined } : g))
-      );
+      setGroups((prev) => prev.map((g) => (g.id === id ? { ...g, color: color || undefined } : g)));
       onSettingsChanged();
-    } catch (e) {
-      showPopup(`✗ 颜色保存失败: ${String(e)}`, true);
-    }
+    } catch (e) { showPopup(`✗ 颜色保存失败: ${String(e)}`, true); }
   }
 
   async function removeGroup(id: number) {
@@ -915,265 +750,227 @@ function SettingsPage({
       setGroups((prev) => prev.filter((g) => g.id !== id));
       onSettingsChanged();
       showPopup("✓ 已删除分组");
-    } catch (e) {
-      showPopup(`✗ 删除失败: ${String(e)}`, true);
-    }
+    } catch (e) { showPopup(`✗ 删除失败: ${String(e)}`, true); }
   }
 
   return (
-    <div className="settings-page">
-      <h2>系统设置</h2>
-
-      {/* ═══ 启动行为 ═══ */}
-      <section className="settings-section">
-        <h3 className="settings-section-title">🚀 启动行为</h3>
-        <div className="setting-group">
-          <label className="setting-row-toggle">
-            <span>开机自动启动</span>
-            <button
-              className={`toggle-switch${autoStart ? " on" : ""}`}
-              onClick={() => toggleAutostart(!autoStart)}
-              role="switch"
-              aria-checked={autoStart}
-            >
-              <span className="toggle-knob" />
-            </button>
-          </label>
-          <p className="setting-desc">
-            开启后，系统启动时自动在后台运行 ClipForge
-          </p>
-        </div>
-      </section>
-
-      {/* ═══ 全局快捷键 ═══ */}
-      <section className="settings-section">
-        <h3 className="settings-section-title">⌨ 全局快捷键</h3>
-        <div className="setting-group">
-          <p className="setting-desc">按下快捷键可随时呼出/隐藏窗口</p>
-          <div className="shortcut-row">
-            <input
-              type="text"
-              className={`shortcut-input${recording ? " recording" : ""}`}
-              value={shortcut}
-              placeholder="如 CmdOrCtrl+Shift+V"
-              readOnly={recording}
-              onChange={(e) => {
-                if (!recording) setShortcut(e.target.value);
-              }}
-              onFocus={() => {
-                setRecording(true);
-                showPopup("按下组合键录制，或直接输入后点「应用」");
-              }}
-              onBlur={() => {
-                setTimeout(() => setRecording(false), 150);
-              }}
-            />
-            <button
-              className="primary"
-              onClick={() => commitShortcut(shortcut)}
-            >
-              应用
-            </button>
-          </div>
-          <p className="setting-hint">
-            {recording
-              ? "● 录制中 — 按下组合键即可捕获"
-              : "点击输入框录制，或手动输入（如 Alt+Z）"}
-          </p>
-          <div className="setting-actions">
-            <button onClick={restoreDefault}>恢复默认</button>
-          </div>
-        </div>
-      </section>
-
-      {/* ═══ 数据存储 ═══ */}
-      <section className="settings-section">
-        <h3 className="settings-section-title">💾 数据存储</h3>
-        <div className="setting-group">
-          <label className="setting-label">数据库文件夹</label>
-          <p className="setting-desc">
-            修改后需重启应用生效。不选择则使用默认路径（AppData/Local/ClipForge/db/ 目录）
-          </p>
-          <div className="shortcut-row">
-            <span
-              className="db-folder-display"
-              data-tip={dbFolder || undefined}
-            >
-              {dbFolder || "（使用默认路径）"}
-            </span>
-            <button className="secondary" onClick={pickFolder}>
-              选择文件夹
-            </button>
-            <button className="primary" onClick={saveDbPath}>
-              保存
-            </button>
-          </div>
-        </div>
-      </section>
-
-
-      {/* ═══ 历史记录 ═══ */}
-      <section className="settings-section">
-        <h3 className="settings-section-title">📋 历史记录</h3>
-        <div className="setting-group">
-          <p className="setting-desc">
-            以下限制仅对未加入分组的记录生效。设为 0 表示不限制。
-          </p>
-          <div className="limits-row">
-            <label>
-              最多保留条数
-              <input
-                type="number"
-                className="limit-input"
-                value={maxItems}
-                min="0"
-                onChange={(e) => setMaxItems(e.target.value)}
-              />
-            </label>
-            <label>
-              最长保存天数
-              <input
-                type="number"
-                className="limit-input"
-                value={maxRetention}
-                min="0"
-                onChange={(e) => setMaxRetention(e.target.value)}
-              />
-            </label>
-            <button className="primary" onClick={saveLimits}>
-              应用
-            </button>
-          </div>
-        </div>
-      </section>
-
-      {/* ═══ 自定义分组 ═══ */}
-      <section className="settings-section">
-        <h3 className="settings-section-title">
-          <svg className="section-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M2 4a1 1 0 0 1 1-1h3.2a1 1 0 0 1 .78.38L7.8 4.6a1 1 0 0 0 .78.4H13a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V4Z" />
-          </svg>
+    <div className="settings-layout">
+      {/* Sidebar */}
+      <div className="settings-sidebar">
+        <button
+          className={`settings-nav-item${activeSection === "general" ? " active" : ""}`}
+          onClick={() => setActiveSection("general")}
+        >
+          <span className="settings-nav-dot" style={{ background: "var(--brand-500)" }} />
+          常规设置
+        </button>
+        <button
+          className={`settings-nav-item${activeSection === "groups" ? " active" : ""}`}
+          onClick={() => setActiveSection("groups")}
+        >
+          <span className="settings-nav-dot" style={{ background: "var(--color-success)" }} />
           自定义分组
-        </h3>
-        <div className="setting-group">
-          <p className="setting-desc">
-            加入分组的记录不受自动清理限制，会永久保留
-          </p>
-          <div className="shortcut-row" style={{ marginBottom: 8 }}>
-            <input
-              type="text"
-              className="shortcut-input"
-              value={newGroupName}
-              placeholder="输入分组名称"
-              onChange={(e) => setNewGroupName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") addGroup();
-              }}
-            />
-            <ColorPickerSwatch
-              value={newGroupColor}
-              onChange={(c) => {
-                setNewGroupColor(c);
-                if (!editingGroupId && groups.length > 0) {
-                  /* editing not active — no-op */
-                }
-              }}
-            />
-            <button className="primary" onClick={addGroup}>
-              添加
-            </button>
-          </div>
-          {groups.length > 0 && (
-            <ul className="group-list">
-              {groups.map((g) => (
-                <li
-                  key={g.id}
-                  className={`group-item${editingGroupId === g.id ? " editing" : ""}`}
-                  title={editingGroupId === g.id ? undefined : "点击重命名"}
-                  onClick={() => {
-                    if (editingGroupId !== g.id) {
-                      setEditingGroupId(g.id);
-                      setEditGroupName(g.name);
-                      setEditingGroupColor(g.color || "");
-                    }
-                  }}
-                >
-                  {editingGroupId === g.id ? (
-                    <>
-                      <input
-                        type="text"
-                        className="group-edit-input"
-                        value={editGroupName}
-                        autoFocus
-                        onClick={(e) => e.stopPropagation()}
-                        onChange={(e) => setEditGroupName(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") renameGroup(g.id);
-                          if (e.key === "Escape") {
-                            setEditingGroupId(null);
-                            setEditGroupName("");
-                            setEditingGroupColor("");
-                          }
-                        }}
-                        onBlur={() => {
-                          renameGroup(g.id);
-                        }}
-                      />
-                      <ColorPickerSwatch
-                        value={editingGroupColor}
-                        onChange={(c) => {
-                          setEditingGroupColor(c);
-                          updateGroupColor(g.id, c);
-                        }}
-                      />
-                    </>
-                  ) : (
-                    <>
-                      <span
-                        className="group-name"
-                        style={
-                          g.color
-                            ? { color: g.color, fontWeight: 600 }
-                            : undefined
-                        }
-                      >
-                        {g.name}
-                      </span>
-                      <ColorPickerSwatch
-                        value={g.color || ""}
-                        onChange={(c) => updateGroupColor(g.id, c)}
-                      />
-                    </>
-                  )}
-                  <div className="group-item-actions">
-                    <button
-                      className="danger"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        removeGroup(g.id);
-                      }}
-                    >
-                      删除
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </section>
+        </button>
+      </div>
 
-      {/* ── Popup Toast ─────────────────────────────── */}
-      {popup && (
-        <div className={`popup-toast${popupError ? " error" : ""}`}>
-          {popup}
+      {/* Panel */}
+      <div className="settings-panel">
+        {/* ── General Settings ── */}
+        <div className={`settings-section${activeSection === "general" ? " active" : ""}`}>
+          {/* Autostart */}
+          <div className="settings-group">
+            <div className="settings-group-header">
+              <div className="settings-group-icon teal">
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="8" cy="8" r="5.5" /><path d="M8 4v4l3 2" />
+                </svg>
+              </div>
+              开机自启
+            </div>
+            <div className="settings-row">
+              <div>
+                <div className="settings-label-text">开机自动启动</div>
+                <div className="settings-label-hint">系统启动时在后台运行 ClipForge</div>
+              </div>
+              <div className="toggle-wrap">
+                <button
+                  className={`toggle-track${autoStart ? " on" : ""}`}
+                  onClick={() => toggleAutostart(!autoStart)}
+                  role="switch"
+                  aria-checked={autoStart}
+                >
+                  <span className="toggle-thumb" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Shortcut */}
+          <div className="settings-group">
+            <div className="settings-group-header">
+              <div className="settings-group-icon amber">
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="1.5" y="3.5" width="13" height="9" rx="1.5" /><path d="M4.5 7.5h2M4.5 10h5" />
+                </svg>
+              </div>
+              全局快捷键
+            </div>
+            {/* Row 1: label + shortcut badge */}
+            <div className="settings-row">
+              <div>
+                <div className="settings-label-text">呼出快捷键</div>
+              </div>
+              <div
+                className={`shortcut-badge${recording ? " recording" : ""}`}
+                onClick={() => { setRecording(true); showPopup("按下组合键录制，或手动输入后点「应用」"); }}
+                title="点击录制"
+              >
+                {shortcut}
+              </div>
+            </div>
+            {/* Row 2: restore default (left) + apply (right) */}
+            <div className="settings-row" style={{ borderBottom: "none" }}>
+              <button className="btn-sm btn-sm-secondary" onClick={restoreDefault}>恢复默认</button>
+              <button className="btn-sm btn-sm-primary" onClick={() => commitShortcut(shortcut)}>应用</button>
+            </div>
+          </div>
+
+          {/* Storage */}
+          <div className="settings-group">
+            <div className="settings-group-header">
+              <div className="settings-group-icon purple">
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                  <ellipse cx="8" cy="5.5" rx="6.5" ry="3" /><path d="M1.5 5.5v5c0 1.66 2.91 3 6.5 3s6.5-1.34 6.5-3v-5" />
+                </svg>
+              </div>
+              数据存储路径
+            </div>
+            <div className="settings-row" style={{ flexDirection: "column", alignItems: "stretch" }}>
+              <div className="path-display" title={dbFolder ? `完整路径: ${dbFolder}` : "当前使用默认路径（AppData 目录）"}>{dbFolderShort || "（使用默认路径）"}</div>
+            </div>
+            <div className="settings-row" style={{ borderBottom: "none" }}>
+              <div>
+                <div className="settings-label-hint">修改后需重启应用生效</div>
+              </div>
+              <div style={{ display: "flex", gap: 6 }}>
+                <button className="btn-sm btn-sm-secondary" onClick={restoreDefaultDbPath}>恢复默认</button>
+                <button className="btn-sm btn-sm-secondary" onClick={pickFolder}>选择</button>
+                <button className="btn-sm btn-sm-primary" onClick={saveDbPath}>保存</button>
+              </div>
+            </div>
+          </div>
+
+          {/* History Limits */}
+          <div className="settings-group">
+            <div className="settings-group-header">
+              <div className="settings-group-icon blue">
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="2" y="3" width="12" height="11" rx="1.5" /><path d="M5 7h6M5 10h4" />
+                </svg>
+              </div>
+              历史记录限制
+            </div>
+            <div className="settings-row">
+              <div>
+                <div className="settings-label-text">最多保留条数</div>
+                <div className="settings-label-hint">0 = 不限制（仅对未分组记录生效）</div>
+              </div>
+              <input className="mini-input" type="number" value={maxItems} min="0" onChange={(e) => setMaxItems(e.target.value)} />
+            </div>
+            <div className="settings-row">
+              <div>
+                <div className="settings-label-text">最长保存天数</div>
+                <div className="settings-label-hint">0 = 永久保留</div>
+              </div>
+              <input className="mini-input" type="number" value={maxRetention} min="0" onChange={(e) => setMaxRetention(e.target.value)} />
+            </div>
+            <div className="settings-row" style={{ borderBottom: "none", justifyContent: "flex-end" }}>
+              <button className="btn-sm btn-sm-primary" onClick={saveLimits}>应用</button>
+            </div>
+          </div>
         </div>
-      )}
+
+        {/* ── Custom Groups ── */}
+        <div className={`settings-section${activeSection === "groups" ? " active" : ""}`}>
+          <div className="settings-group">
+            <div className="settings-group-header">
+              <div className="settings-group-icon green">
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M2 4a1 1 0 0 1 1-1h3.2a1 1 0 0 1 .78.38L7.8 4.6a1 1 0 0 0 .78.4H13a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V4Z" />
+                </svg>
+              </div>
+              自定义分组
+            </div>
+            <div className="settings-label-hint" style={{ marginBottom: 8 }}>加入分组的记录不受自动清理限制，会永久保留</div>
+
+            {/* Existing groups */}
+            {groups.length > 0 && (
+              <ul className="group-list">
+                {groups.map((g) => (
+                  <li
+                    key={g.id}
+                    className={`group-item${editingGroupId === g.id ? " editing" : ""}`}
+                    onClick={() => {
+                      if (editingGroupId !== g.id) { setEditingGroupId(g.id); setEditGroupName(g.name); setEditingGroupColor(g.color || ""); }
+                    }}
+                  >
+                    {editingGroupId === g.id ? (
+                      <>
+                        <input
+                          type="text" className="group-edit-input"
+                          value={editGroupName} autoFocus
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => setEditGroupName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") renameGroup(g.id);
+                            if (e.key === "Escape") { setEditingGroupId(null); setEditGroupName(""); setEditingGroupColor(""); }
+                          }}
+                          onBlur={() => renameGroup(g.id)}
+                        />
+                        <ColorPickerSwatch value={editingGroupColor} onChange={(c) => { setEditingGroupColor(c); updateGroupColor(g.id, c); }} />
+                      </>
+                    ) : (
+                      <>
+                        <span className="group-name" style={g.color ? { color: g.color, fontWeight: 600 } : undefined}>{g.name}</span>
+                        <ColorPickerSwatch value={g.color || ""} onChange={(c) => updateGroupColor(g.id, c)} />
+                      </>
+                    )}
+                    <div className="group-item-actions">
+                      <button className="btn-sm btn-sm-secondary" style={{ color: "var(--color-danger)", borderColor: "oklch(55% 0.19 25 / 0.25)", padding: "3px 10px", fontSize: 11 }}
+                        onClick={(e) => { e.stopPropagation(); removeGroup(g.id); }}>
+                        删除
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {/* Add group row */}
+            <div className="group-add-row">
+              <div style={{ width: 10, height: 10, borderRadius: "50%", background: newGroupColor || "var(--brand-400)", flexShrink: 0 }} />
+              <input
+                type="text" className="group-add-input"
+                value={newGroupName} placeholder="输入分组名称..."
+                onChange={(e) => setNewGroupName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") addGroup(); }}
+              />
+              <ColorPickerSwatch value={newGroupColor} onChange={setNewGroupColor} />
+              <button className="btn-sm btn-sm-primary" onClick={addGroup}>添加</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Popup */}
+      {popup && <div className={`popup-toast${popupError ? " error" : ""}`}>{popup}</div>}
     </div>
   );
 }
 
-// ── ListItem ────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════
+// LIST ITEM
+// ═══════════════════════════════════════════════════════════════════
 function ListItem({
   item,
   imageCache,
@@ -1193,76 +990,52 @@ function ListItem({
   onMoveToGroup: (itemId: number, groupId: number | null, groupName?: string | null) => void;
   showGroupTag: boolean;
 }) {
-  // Type is computed by backend; we just map to display label.
   const ct = item.content_type;
-  const typeLabel = TYPE_LABEL[ct] ?? null; // null = text / image — no tag
+  const typeLabel = TYPE_LABEL[ct] ?? "文本";
   const [groupMenu, setGroupMenu] = useState(false);
   const groupMenuRef = useRef<HTMLDivElement>(null);
 
-  // Close group menu on click outside
   useEffect(() => {
     if (!groupMenu) return;
-    function handleClick(e: MouseEvent) {
-      if (groupMenuRef.current && !groupMenuRef.current.contains(e.target as Node)) {
-        setGroupMenu(false);
-      }
-    }
+    function handleClick(e: MouseEvent) { if (groupMenuRef.current && !groupMenuRef.current.contains(e.target as Node)) setGroupMenu(false); }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, [groupMenu]);
 
-  // Close group menu when window refocuses
   useEffect(() => {
     if (!groupMenu) return;
-    const unlisten = getCurrentWindow().listen("tauri://focus", () => {
-      setGroupMenu(false);
-    });
-    return () => {
-      unlisten.then((fn) => fn());
-    };
+    const unlisten = getCurrentWindow().listen("tauri://focus", () => setGroupMenu(false));
+    return () => { unlisten.then((fn) => fn()); };
   }, [groupMenu]);
 
-  // Look up custom group color
   const groupColor =
-    item.group_id != null
-      ? customGroups.find((g) => g.id === item.group_id)?.color ?? undefined
-      : undefined;
+    item.group_id != null ? customGroups.find((g) => g.id === item.group_id)?.color ?? undefined : undefined;
+
+  // Format time
+  const timeText = item.created_at ? item.created_at.replace("T", " ").substring(0, 16) : "";
 
   return (
     <li
-      className={ct === "image" ? "image-item" : "text-item"}
+      className={`clip-item${ct === "image" ? " image-item" : ""}`}
       onClick={() => {
-        if (ct === "image" && item.image_path) {
-          onCopyAndPasteImage(item.image_path);
-        } else {
-          onCopyAndPaste(item.content);
-        }
+        if (ct === "image" && item.image_path) onCopyAndPasteImage(item.image_path);
+        else if (ct !== "image") onCopyAndPaste(item.content);
       }}
     >
-      {/* Type tag + group tag side by side */}
-      {(typeLabel || (showGroupTag && item.group_name)) && (
-        <div className="item-tags-row">
-          {typeLabel && (
-            <span className={`type-tag tag-${ct}`}>{typeLabel}</span>
-          )}
-          {showGroupTag && item.group_name && (
-            <span
-              className="type-tag tag-group"
-              style={{
-                background: (groupColor || "#555") + "20",
-                color: groupColor || "#555",
-                borderColor: (groupColor || "#555") + "40",
-              }}
-            >
-              <svg className="tag-icon" viewBox="0 0 14 14" fill="none" stroke={groupColor || "#555"} strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M2 3.5a1 1 0 0 1 1-1h2.5a1 1 0 0 1 .8.4l.5.6a1 1 0 0 0 .8.4H11a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5Z" />
-              </svg>
-              {item.group_name}
-            </span>
-          )}
-        </div>
-      )}
+      {/* Tags row */}
+      <div className="item-tags-row">
+        <span className={`type-tag tag-${ct}`}>{typeLabel}</span>
+        {showGroupTag && item.group_name && (
+          <span className="type-tag tag-group" style={{ background: (groupColor || "#555") + "20", color: groupColor || "#555", borderColor: (groupColor || "#555") + "40" }}>
+            <svg className="tag-icon" viewBox="0 0 14 14" fill="none" stroke={groupColor || "#555"} strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M2 3.5a1 1 0 0 1 1-1h2.5a1 1 0 0 1 .8.4l.5.6a1 1 0 0 0 .8.4H11a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5Z" />
+            </svg>
+            {item.group_name}
+          </span>
+        )}
+      </div>
 
+      {/* Content */}
       {ct === "image" ? (
         <div className="image-thumb">
           {imageCache[item.image_path] ? (
@@ -1275,82 +1048,45 @@ function ListItem({
         <div className="item-content">
           {ct === "color" ? (
             <span className="color-swatch">
-              <span
-                className="color-dot"
-                style={{ background: item.content.trim() }}
-              />
+              <span className="color-dot" style={{ background: item.content.trim() }} />
               {item.content.trim()}
             </span>
-          ) : (
-            item.content
-          )}
+          ) : (item.content)}
         </div>
       )}
 
+      {/* Meta */}
       <div className="item-meta">
-        <small>{item.created_at}</small>
+        <span className="item-time">{timeText}</span>
         <div className="item-actions-right">
           {/* Group menu */}
           <div className="group-toggle">
-            <button
-              className="group-btn"
-              title="分组"
-              onClick={(e) => {
-                e.stopPropagation();
-                setGroupMenu((v) => !v);
-              }}
-            >
+            <button className="group-btn" title="分组" onClick={(e) => { e.stopPropagation(); setGroupMenu((v) => !v); }}>
               <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
                 <path d="M2 3.5a1 1 0 0 1 1-1h2.5a1 1 0 0 1 .8.4l.5.6a1 1 0 0 0 .8.4H11a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5Z" />
               </svg>
             </button>
             {groupMenu && (
-              <div
-                className="group-dropdown"
-                ref={groupMenuRef}
-                onClick={(e) => e.stopPropagation()}
-              >
+              <div className="group-dropdown" ref={groupMenuRef} onClick={(e) => e.stopPropagation()}>
                 {item.group_id ? (
-                  <button
-                    onClick={() => {
-                      onMoveToGroup(item.id, null, null);
-                      setGroupMenu(false);
-                    }}
-                  >
-                    <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" width="9" height="9">
-                      <path d="M1 11 11 1M1 1l10 10" />
-                    </svg>
+                  <button onClick={() => { onMoveToGroup(item.id, null, null); setGroupMenu(false); }}>
+                    <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" width="9" height="9"><path d="M1 11 11 1M1 1l10 10" /></svg>
                     {" "}移出分组
                   </button>
                 ) : null}
-                {customGroups
-                  .filter((g) => g.id !== item.group_id)
-                  .map((g) => (
-                    <button
-                      key={g.id}
-                      onClick={() => {
-                        onMoveToGroup(item.id, g.id, g.name);
-                        setGroupMenu(false);
-                      }}
-                    >
-                      {g.name}
-                    </button>
-                  ))}
+                {customGroups.filter((g) => g.id !== item.group_id).map((g) => (
+                  <button key={g.id} onClick={() => { onMoveToGroup(item.id, g.id, g.name); setGroupMenu(false); }}>{g.name}</button>
+                ))}
                 {customGroups.length === 0 && !item.group_id && (
                   <span className="group-empty-tip">暂无分组，请在设置中创建</span>
                 )}
               </div>
             )}
           </div>
-          <button
-            className="delete-btn"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete(item.id);
-            }}
-            title="删除此条"
-          >
-            删除
+          <button className="delete-btn" onClick={(e) => { e.stopPropagation(); onDelete(item.id); }} title="删除此条">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M2 4h12M5 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1M13 4v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4M6 7v5M10 7v5" />
+            </svg>
           </button>
         </div>
       </div>
